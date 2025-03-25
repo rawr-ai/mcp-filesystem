@@ -17,8 +17,20 @@ import { minimatch } from 'minimatch';
 
 // Command line argument parsing
 const args = process.argv.slice(2);
+// Parse flags
+const readonlyFlag = args.includes('--readonly');
+const noFollowSymlinks = args.includes('--no-follow-symlinks');
+
+// Remove flags from args
+if (readonlyFlag) {
+  args.splice(args.indexOf('--readonly'), 1);
+}
+if (noFollowSymlinks) {
+  args.splice(args.indexOf('--no-follow-symlinks'), 1);
+}
+
 if (args.length === 0) {
-  console.error("Usage: mcp-server-filesystem <allowed-directory> [additional-directories...]");
+  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] <allowed-directory> [additional-directories...]");
   process.exit(1);
 }
 
@@ -39,6 +51,9 @@ const allowedDirectories = args.map(dir =>
   normalizePath(path.resolve(expandHome(dir)))
 );
 
+// Create a map to store the mapping between symlinks and their real paths
+const symlinksMap = new Map<string, string>();
+
 // Validate that all directories exist and are accessible
 await Promise.all(args.map(async (dir) => {
   try {
@@ -46,6 +61,23 @@ await Promise.all(args.map(async (dir) => {
     if (!stats.isDirectory()) {
       console.error(`Error: ${dir} is not a directory`);
       process.exit(1);
+    }
+    
+    // Store symlink mappings for all provided directories
+    try {
+      const realPath = await fs.realpath(dir);
+      if (realPath !== dir) {
+        const normalizedDir = normalizePath(path.resolve(expandHome(dir)));
+        const normalizedRealPath = normalizePath(realPath);
+        symlinksMap.set(normalizedRealPath, normalizedDir);
+        // Also add the real path to allowed directories if it's a symlink
+        if (!allowedDirectories.includes(normalizedRealPath)) {
+          allowedDirectories.push(normalizedRealPath);
+        }
+      }
+    } catch (error) {
+      // If we can't resolve the real path, just continue
+      console.error(`Warning: Could not resolve real path for ${dir}:`, error);
     }
   } catch (error) {
     console.error(`Error accessing directory ${dir}:`, error);
@@ -65,6 +97,21 @@ async function validatePath(requestedPath: string): Promise<string> {
   // Check if path is within allowed directories
   const isAllowed = allowedDirectories.some(dir => normalizedRequested.startsWith(dir));
   if (!isAllowed) {
+    // Check if it's a real path that matches a symlink we know about
+    const matchingSymlink = Array.from(symlinksMap.entries()).find(([realPath, symlinkPath]) => 
+      normalizedRequested.startsWith(realPath)
+    );
+    
+    if (matchingSymlink) {
+      const [realPath, symlinkPath] = matchingSymlink;
+      // Convert the path from real path to symlink path
+      const relativePath = normalizedRequested.substring(realPath.length);
+      const symlinkEquivalent = path.join(symlinkPath, relativePath);
+      
+      // Return the symlink path instead
+      return symlinkEquivalent;
+    }
+    
     throw new Error(`Access denied - path outside allowed directories: ${absolute} not in ${allowedDirectories.join(', ')}`);
   }
 
@@ -72,10 +119,24 @@ async function validatePath(requestedPath: string): Promise<string> {
   try {
     const realPath = await fs.realpath(absolute);
     const normalizedReal = normalizePath(realPath);
-    const isRealPathAllowed = allowedDirectories.some(dir => normalizedReal.startsWith(dir));
-    if (!isRealPathAllowed) {
-      throw new Error("Access denied - symlink target outside allowed directories");
+    
+    // If the real path is different from the requested path, it's a symlink
+    if (normalizedReal !== normalizedRequested) {
+      // Store this mapping for future reference
+      symlinksMap.set(normalizedReal, normalizedRequested);
+      
+      // Make sure the real path is also allowed
+      const isRealPathAllowed = allowedDirectories.some(dir => normalizedReal.startsWith(dir));
+      if (!isRealPathAllowed) {
+        throw new Error("Access denied - symlink target outside allowed directories");
+      }
+      
+      // If no-follow-symlinks is true, return the original path
+      if (noFollowSymlinks) {
+        return absolute;
+      }
     }
+    
     return realPath;
   } catch (error) {
     // For new files that don't exist yet, verify parent directory
@@ -484,6 +545,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!parsed.success) {
           throw new Error(`Invalid arguments for write_file: ${parsed.error}`);
         }
+        
+        // Check if server is in readonly mode
+        if (readonlyFlag) {
+          throw new Error('Cannot write file: server is in read-only mode');
+        }
+        
         const validPath = await validatePath(parsed.data.path);
         await fs.writeFile(validPath, parsed.data.content, "utf-8");
         return {
@@ -496,6 +563,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!parsed.success) {
           throw new Error(`Invalid arguments for edit_file: ${parsed.error}`);
         }
+        
+        // Check if server is in readonly mode
+        if (readonlyFlag) {
+          throw new Error('Cannot edit file: server is in read-only mode');
+        }
+        
         const validPath = await validatePath(parsed.data.path);
         const result = await applyFileEdits(validPath, parsed.data.edits, parsed.data.dryRun);
         return {
@@ -508,6 +581,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!parsed.success) {
           throw new Error(`Invalid arguments for create_directory: ${parsed.error}`);
         }
+        
+        // Check if server is in readonly mode
+        if (readonlyFlag) {
+          throw new Error('Cannot create directory: server is in read-only mode');
+        }
+        
         const validPath = await validatePath(parsed.data.path);
         await fs.mkdir(validPath, { recursive: true });
         return {
@@ -578,6 +657,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (!parsed.success) {
           throw new Error(`Invalid arguments for move_file: ${parsed.error}`);
         }
+        
+        // Check if server is in readonly mode
+        if (readonlyFlag) {
+          throw new Error('Cannot move file: server is in read-only mode');
+        }
+        
         const validSourcePath = await validatePath(parsed.data.source);
         const validDestPath = await validatePath(parsed.data.destination);
         await fs.rename(validSourcePath, validDestPath);
@@ -639,6 +724,12 @@ async function runServer() {
   await server.connect(transport);
   console.error("Secure MCP Filesystem Server running on stdio");
   console.error("Allowed directories:", allowedDirectories);
+  if (readonlyFlag) {
+    console.error("Server running in read-only mode");
+  }
+  if (noFollowSymlinks) {
+    console.error("Server running with symlink following disabled");
+  }
 }
 
 runServer().catch((error) => {

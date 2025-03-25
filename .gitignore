@@ -1,2 +1,20 @@
+# Build output
+dist/
+ 
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.test
+
+# IDE files
+.vscode/
+
+# Logs and temporary files
+*.log
+*.tmp
+
 .vscode/
 
