@@ -203,6 +203,12 @@ const SearchFilesArgsSchema = z.object({
   excludePatterns: z.array(z.string()).optional().default([])
 });
 
+const FindFilesByExtensionArgsSchema = z.object({
+  path: z.string(),
+  extension: z.string().describe('File extension to search for (e.g., "xml", "json", "ts")'),
+  excludePatterns: z.array(z.string()).optional().default([])
+});
+
 const GetFileInfoArgsSchema = z.object({
   path: z.string(),
 });
@@ -290,6 +296,62 @@ async function searchFiles(
   }
 
   await search(rootPath);
+  return results;
+}
+
+// Add a new function for finding files by extension
+async function findFilesByExtension(
+  rootPath: string,
+  extension: string,
+  excludePatterns: string[] = []
+): Promise<string[]> {
+  const results: string[] = [];
+  
+  // Normalize the extension (remove leading dot if present)
+  let normalizedExtension = extension.toLowerCase();
+  if (normalizedExtension.startsWith('.')) {
+    normalizedExtension = normalizedExtension.substring(1);
+  }
+  
+  async function searchDirectory(currentPath: string) {
+    const entries = await fs.readdir(currentPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+
+      try {
+        // Validate each path before processing
+        await validatePath(fullPath);
+
+        // Check if path matches any exclude pattern
+        const relativePath = path.relative(rootPath, fullPath);
+        const shouldExclude = excludePatterns.some(pattern => {
+          const globPattern = pattern.includes('*') ? pattern : `**/${pattern}/**`;
+          return minimatch(relativePath, globPattern, { dot: true });
+        });
+
+        if (shouldExclude) {
+          continue;
+        }
+
+        if (entry.isFile()) {
+          // Check if file has the requested extension
+          const fileExtension = path.extname(entry.name).toLowerCase().substring(1);
+          if (fileExtension === normalizedExtension) {
+            results.push(fullPath);
+          }
+        } else if (entry.isDirectory()) {
+          // Recursively search subdirectories
+          await searchDirectory(fullPath);
+        }
+      } catch (error) {
+        // Skip invalid paths during search
+        continue;
+      }
+    }
+  }
+
+  await searchDirectory(rootPath);
   return results;
 }
 
@@ -442,6 +504,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "matching items. Great for finding files when you don't know their exact location. " +
         "Only searches within allowed directories.",
       inputSchema: zodToJsonSchema(SearchFilesArgsSchema) as ToolInput,
+    },
+    {
+      name: "find_files_by_extension",
+      description:
+        "Recursively find all files with a specific extension. " +
+        "Searches through all subdirectories from the starting path. " +
+        "Extension matching is case-insensitive. Returns full paths to all " +
+        "matching files. Perfect for finding all XML, JSON, or other file types " +
+        "in a directory structure. Only searches within allowed directories.",
+      inputSchema: zodToJsonSchema(FindFilesByExtensionArgsSchema) as ToolInput,
     },
     {
       name: "get_file_info",
@@ -692,6 +764,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const results = await searchFiles(validPath, parsed.data.pattern, parsed.data.excludePatterns);
         return {
           content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matches found" }],
+        };
+      }
+
+      case "find_files_by_extension": {
+        const parsed = FindFilesByExtensionArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for find_files_by_extension: ${parsed.error}`);
+        }
+        const validPath = await validatePath(parsed.data.path);
+        const results = await findFilesByExtension(
+          validPath, 
+          parsed.data.extension, 
+          parsed.data.excludePatterns
+        );
+        return {
+          content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matching files found" }],
         };
       }
 
