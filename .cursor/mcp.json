@@ -48,6 +48,14 @@
 				"--allow-create",
 				"--allow-edit"
 			]
+		},
+		"mcp-test-delete-only": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-delete"
+			]
 		}
 	}
 }

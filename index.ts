@@ -26,6 +26,7 @@ const noFollowSymlinks = args.includes('--no-follow-symlinks');
 const allowCreate = args.includes('--allow-create');
 const allowEdit = args.includes('--allow-edit');
 const allowMove = args.includes('--allow-move');
+const allowDelete = args.includes('--allow-delete');
 
 // Permission calculation (readonly overrides allow flags)
 const permissions = {
@@ -33,8 +34,9 @@ const permissions = {
   create: !readonlyFlag && allowCreate,
   edit: !readonlyFlag && allowEdit,
   move: !readonlyFlag && allowMove,
+  delete: !readonlyFlag && allowDelete,
   // If no permission flags are set and not readonly, allow everything
-  fullAccess: !readonlyFlag && !allowCreate && !allowEdit && !allowMove
+  fullAccess: !readonlyFlag && !allowCreate && !allowEdit && !allowMove && !allowDelete
 };
 
 // Remove flags from args
@@ -53,9 +55,12 @@ if (allowEdit) {
 if (allowMove) {
   args.splice(args.indexOf('--allow-move'), 1);
 }
+if (allowDelete) {
+  args.splice(args.indexOf('--allow-delete'), 1);
+}
 
 if (args.length === 0) {
-  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] <allowed-directory> [additional-directories...]");
+  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] [--allow-delete] <allowed-directory> [additional-directories...]");
   process.exit(1);
 }
 
@@ -236,6 +241,15 @@ const FindFilesByExtensionArgsSchema = z.object({
 
 const GetFileInfoArgsSchema = z.object({
   path: z.string(),
+});
+
+const DeleteFileArgsSchema = z.object({
+  path: z.string(),
+});
+
+const DeleteDirectoryArgsSchema = z.object({
+  path: z.string(),
+  recursive: z.boolean().default(false).describe('Whether to recursively delete the directory and all contents')
 });
 
 const XmlToJsonArgsSchema = z.object({
@@ -652,6 +666,25 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "it only reads the XML file and returns the parsed data.",
       inputSchema: zodToJsonSchema(XmlToJsonStringArgsSchema) as ToolInput,
     },
+    {
+      name: "delete_file",
+      description:
+        "Delete a file at the specified path. " +
+        "Will fail if the file does not exist. " +
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-delete permission.",
+      inputSchema: zodToJsonSchema(DeleteFileArgsSchema) as ToolInput,
+    },
+    {
+      name: "delete_directory",
+      description:
+        "Delete a directory at the specified path. " +
+        "Can optionally delete recursively with all contents. " +
+        "Will fail if the directory is not empty and recursive is false. " +
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-delete permission.",
+      inputSchema: zodToJsonSchema(DeleteDirectoryArgsSchema) as ToolInput,
+    },
   ];
 
   // Filter tools based on permissions
@@ -682,6 +715,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     }
 
     if (permissions.move && ['move_file'].includes(tool.name)) {
+      return true;
+    }
+
+    if (permissions.delete && ['delete_file', 'delete_directory'].includes(tool.name)) {
       return true;
     }
 
@@ -1043,6 +1080,67 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }
       }
 
+      case "delete_file": {
+        const parsed = DeleteFileArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for delete_file: ${parsed.error}`);
+        }
+        
+        // Enforce permission checks
+        if (!permissions.delete && !permissions.fullAccess) {
+          throw new Error('Cannot delete file: delete permission not granted (requires --allow-delete)');
+        }
+        
+        const validPath = await validatePath(parsed.data.path);
+        
+        try {
+          // Check if file exists
+          await fs.access(validPath);
+          await fs.unlink(validPath);
+          return {
+            content: [{ type: "text", text: `Successfully deleted ${parsed.data.path}` }],
+          };
+        } catch (error) {
+          throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      case "delete_directory": {
+        const parsed = DeleteDirectoryArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for delete_directory: ${parsed.error}`);
+        }
+        
+        // Enforce permission checks
+        if (!permissions.delete && !permissions.fullAccess) {
+          throw new Error('Cannot delete directory: delete permission not granted (requires --allow-delete)');
+        }
+        
+        const validPath = await validatePath(parsed.data.path);
+        
+        try {
+          if (parsed.data.recursive) {
+            // Safety confirmation for recursive delete
+            await fs.rm(validPath, { recursive: true, force: true });
+            return {
+              content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path} and all its contents` }],
+            };
+          } else {
+            // Non-recursive directory delete
+            await fs.rmdir(validPath);
+            return {
+              content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path}` }],
+            };
+          }
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : String(error);
+          if (msg.includes('ENOTEMPTY')) {
+            throw new Error(`Cannot delete directory: directory is not empty. Use recursive=true to delete with contents.`);
+          }
+          throw new Error(`Failed to delete directory: ${msg}`);
+        }
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -1067,11 +1165,12 @@ async function runServer() {
     // Log permission state
     const permState = [];
     if (permissions.fullAccess) {
-      permState.push("full access (create, edit, move)");
+      permState.push("full access (create, edit, move, delete)");
     } else {
       if (permissions.create) permState.push("create");
       if (permissions.edit) permState.push("edit");
       if (permissions.move) permState.push("move");
+      if (permissions.delete) permState.push("delete");
       if (permState.length === 0) permState.push("read-only");
     }
     console.error(`Server running with permissions: ${permState.join(", ")}`);
