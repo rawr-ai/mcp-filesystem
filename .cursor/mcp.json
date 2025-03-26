@@ -5,7 +5,8 @@
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/",
-				"--no-follow-symlinks"
+				"--no-follow-symlinks",
+				"--full-access"
 			]
 		},
 		"mcp-test-readonly": {
@@ -13,6 +14,23 @@
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
+				"--readonly"
+			]
+		},
+		"mcp-test-full-access": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--full-access"
+			]
+		},
+		"mcp-test-readonly-override": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--full-access",
 				"--readonly"
 			]
 		},
@@ -55,6 +73,13 @@
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
 				"--allow-delete"
+			]
+		},
+		"mcp-test-default": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test"
 			]
 		}
 	}

@@ -21,6 +21,7 @@ const args = process.argv.slice(2);
 // Parse flags
 const readonlyFlag = args.includes('--readonly');
 const noFollowSymlinks = args.includes('--no-follow-symlinks');
+const fullAccessFlag = args.includes('--full-access');
 
 // Granular permission flags
 const allowCreate = args.includes('--allow-create');
@@ -28,15 +29,17 @@ const allowEdit = args.includes('--allow-edit');
 const allowMove = args.includes('--allow-move');
 const allowDelete = args.includes('--allow-delete');
 
-// Permission calculation (readonly overrides allow flags)
+// Permission calculation
+// readonly flag overrides all other permissions as a safety mechanism
+// fullAccess enables all permissions unless readonly is set
+// individual allow flags enable specific permissions unless readonly is set
 const permissions = {
-  // If readonly is true, all permissions are false regardless of allow flags
-  create: !readonlyFlag && allowCreate,
-  edit: !readonlyFlag && allowEdit,
-  move: !readonlyFlag && allowMove,
-  delete: !readonlyFlag && allowDelete,
-  // If no permission flags are set and not readonly, allow everything
-  fullAccess: !readonlyFlag && !allowCreate && !allowEdit && !allowMove && !allowDelete
+  create: !readonlyFlag && (fullAccessFlag || allowCreate),
+  edit: !readonlyFlag && (fullAccessFlag || allowEdit),
+  move: !readonlyFlag && (fullAccessFlag || allowMove),
+  delete: !readonlyFlag && (fullAccessFlag || allowDelete),
+  // fullAccess is true only if the flag is explicitly set and not in readonly mode
+  fullAccess: !readonlyFlag && fullAccessFlag
 };
 
 // Remove flags from args
@@ -45,6 +48,9 @@ if (readonlyFlag) {
 }
 if (noFollowSymlinks) {
   args.splice(args.indexOf('--no-follow-symlinks'), 1);
+}
+if (fullAccessFlag) {
+  args.splice(args.indexOf('--full-access'), 1);
 }
 if (allowCreate) {
   args.splice(args.indexOf('--allow-create'), 1);
@@ -60,7 +66,7 @@ if (allowDelete) {
 }
 
 if (args.length === 0) {
-  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] [--allow-delete] <allowed-directory> [additional-directories...]");
+  console.error("Usage: mcp-server-filesystem [--full-access] [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] [--allow-delete] <allowed-directory> [additional-directories...]");
   process.exit(1);
 }
 
@@ -1159,22 +1165,25 @@ async function runServer() {
   await server.connect(transport);
   console.error("Secure MCP Filesystem Server running on stdio");
   console.error("Allowed directories:", allowedDirectories);
+  
+  // Log permission state
+  const permState = [];
   if (readonlyFlag) {
-    console.error("Server running in read-only mode");
+    console.error("Server running in read-only mode (--readonly flag overrides all other permissions)");
+  } else if (permissions.fullAccess) {
+    console.error("Server running with full access (all operations enabled via --full-access)");
   } else {
-    // Log permission state
-    const permState = [];
-    if (permissions.fullAccess) {
-      permState.push("full access (create, edit, move, delete)");
+    if (permissions.create) permState.push("create");
+    if (permissions.edit) permState.push("edit");
+    if (permissions.move) permState.push("move");
+    if (permissions.delete) permState.push("delete");
+    if (permState.length === 0) {
+      console.error("Server running in default read-only mode (use --full-access or specific --allow-* flags to enable write operations)");
     } else {
-      if (permissions.create) permState.push("create");
-      if (permissions.edit) permState.push("edit");
-      if (permissions.move) permState.push("move");
-      if (permissions.delete) permState.push("delete");
-      if (permState.length === 0) permState.push("read-only");
+      console.error(`Server running with specific permissions enabled: ${permState.join(", ")}`);
     }
-    console.error(`Server running with permissions: ${permState.join(", ")}`);
   }
+  
   if (noFollowSymlinks) {
     console.error("Server running with symlink following disabled");
   }
