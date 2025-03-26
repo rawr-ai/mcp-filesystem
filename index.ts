@@ -14,12 +14,28 @@ import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { diffLines, createTwoFilesPatch } from 'diff';
 import { minimatch } from 'minimatch';
+import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 
 // Command line argument parsing
 const args = process.argv.slice(2);
 // Parse flags
 const readonlyFlag = args.includes('--readonly');
 const noFollowSymlinks = args.includes('--no-follow-symlinks');
+
+// Granular permission flags
+const allowCreate = args.includes('--allow-create');
+const allowEdit = args.includes('--allow-edit');
+const allowMove = args.includes('--allow-move');
+
+// Permission calculation (readonly overrides allow flags)
+const permissions = {
+  // If readonly is true, all permissions are false regardless of allow flags
+  create: !readonlyFlag && allowCreate,
+  edit: !readonlyFlag && allowEdit,
+  move: !readonlyFlag && allowMove,
+  // If no permission flags are set and not readonly, allow everything
+  fullAccess: !readonlyFlag && !allowCreate && !allowEdit && !allowMove
+};
 
 // Remove flags from args
 if (readonlyFlag) {
@@ -28,9 +44,18 @@ if (readonlyFlag) {
 if (noFollowSymlinks) {
   args.splice(args.indexOf('--no-follow-symlinks'), 1);
 }
+if (allowCreate) {
+  args.splice(args.indexOf('--allow-create'), 1);
+}
+if (allowEdit) {
+  args.splice(args.indexOf('--allow-edit'), 1);
+}
+if (allowMove) {
+  args.splice(args.indexOf('--allow-move'), 1);
+}
 
 if (args.length === 0) {
-  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] <allowed-directory> [additional-directories...]");
+  console.error("Usage: mcp-server-filesystem [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] <allowed-directory> [additional-directories...]");
   process.exit(1);
 }
 
@@ -211,6 +236,25 @@ const FindFilesByExtensionArgsSchema = z.object({
 
 const GetFileInfoArgsSchema = z.object({
   path: z.string(),
+});
+
+const XmlToJsonArgsSchema = z.object({
+  xmlPath: z.string().describe('Path to the XML file to convert'),
+  jsonPath: z.string().describe('Path where the JSON should be saved'),
+  options: z.object({
+    ignoreAttributes: z.boolean().default(false).describe('Whether to ignore attributes in XML'),
+    preserveOrder: z.boolean().default(true).describe('Whether to preserve the order of properties'),
+    format: z.boolean().default(true).describe('Whether to format the JSON output'),
+    indentSize: z.number().default(2).describe('Number of spaces for indentation')
+  }).optional().default({})
+});
+
+const XmlToJsonStringArgsSchema = z.object({
+  xmlPath: z.string().describe('Path to the XML file to convert'),
+  options: z.object({
+    ignoreAttributes: z.boolean().default(false).describe('Whether to ignore attributes in XML'),
+    preserveOrder: z.boolean().default(true).describe('Whether to preserve the order of properties')
+  }).optional().default({})
 });
 
 const ToolInputSchema = ToolSchema.shape.inputSchema;
@@ -536,13 +580,23 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
     },
     
-    // Write tools (excluded in readonly mode)
+    // Write tools (filtered based on permissions)
     {
-      name: "write_file",
+      name: "create_file",
       description:
-        "Create a new file or completely overwrite an existing file with new content. " +
-        "Use with caution as it will overwrite existing files without warning. " +
-        "Handles text content with proper encoding. Only works within allowed directories.",
+        "Create a new file with the specified content. " +
+        "Will fail if the file already exists. " +
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-create permission.",
+      inputSchema: zodToJsonSchema(WriteFileArgsSchema) as ToolInput,
+    },
+    {
+      name: "modify_file",
+      description:
+        "Modify an existing file with new content. " +
+        "Will fail if the file does not exist. " +
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-edit permission.",
       inputSchema: zodToJsonSchema(WriteFileArgsSchema) as ToolInput,
     },
     {
@@ -550,7 +604,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       description:
         "Make line-based edits to a text file. Each edit replaces exact line sequences " +
         "with new content. Returns a git-style diff showing the changes made. " +
-        "Only works within allowed directories.",
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-edit permission.",
       inputSchema: zodToJsonSchema(EditFileArgsSchema) as ToolInput,
     },
     {
@@ -559,7 +614,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Create a new directory or ensure a directory exists. Can create multiple " +
         "nested directories in one operation. If the directory already exists, " +
         "this operation will succeed silently. Perfect for setting up directory " +
-        "structures for projects or ensuring required paths exist. Only works within allowed directories.",
+        "structures for projects or ensuring required paths exist. Only works within allowed directories. " +
+        "This tool requires the --allow-create permission.",
       inputSchema: zodToJsonSchema(CreateDirectoryArgsSchema) as ToolInput,
     },
     {
@@ -568,17 +624,69 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Move or rename files and directories. Can move files between directories " +
         "and rename them in a single operation. If the destination exists, the " +
         "operation will fail. Works across different directories and can be used " +
-        "for simple renaming within the same directory. Both source and destination must be within allowed directories.",
+        "for simple renaming within the same directory. Both source and destination must be within allowed directories. " +
+        "This tool requires the --allow-move permission.",
       inputSchema: zodToJsonSchema(MoveFileArgsSchema) as ToolInput,
+    },
+    {
+      name: "xml_to_json",
+      description:
+        "Convert an XML file to JSON format and optionally save it to a new file. " +
+        "Uses fast-xml-parser for efficient and reliable conversion. " +
+        "Supports various options like preserving attribute information " +
+        "and formatting the output. Both input and output paths must be " +
+        "within allowed directories. " +
+        "NOTE: This tool is always available for parsing XML, but saving the output " +
+        "to a file requires the --allow-create permission. Use xml_to_json_string for " +
+        "read-only operations.",
+      inputSchema: zodToJsonSchema(XmlToJsonArgsSchema) as ToolInput,
+    },
+    {
+      name: "xml_to_json_string",
+      description:
+        "Convert an XML file to a JSON string and return it directly. " +
+        "This is useful for quickly inspecting XML content as JSON without " +
+        "creating a new file. Uses fast-xml-parser for conversion. " +
+        "The input path must be within allowed directories. " +
+        "This tool is fully functional in both readonly and write modes since " +
+        "it only reads the XML file and returns the parsed data.",
+      inputSchema: zodToJsonSchema(XmlToJsonStringArgsSchema) as ToolInput,
     },
   ];
 
-  // For readonly mode, filter out write tools
-  const tools = readonlyFlag
-    ? allTools.filter(tool => 
-        !['write_file', 'edit_file', 'create_directory', 'move_file'].includes(tool.name)
-      )
-    : allTools;
+  // Filter tools based on permissions
+  const tools = !permissions.fullAccess ? allTools.filter(tool => {
+    // These tools are always available
+    if (['read_file', 'read_multiple_files', 'list_directory', 'directory_tree', 
+         'search_files', 'find_files_by_extension', 'get_file_info', 
+         'list_allowed_directories', 'xml_to_json_string'].includes(tool.name)) {
+      return true;
+    }
+
+    // Split write_file into two separate tools
+    if (permissions.create && tool.name === 'create_file') {
+      return true;
+    }
+
+    if (permissions.edit && tool.name === 'modify_file') {
+      return true;
+    }
+
+    // Other permission tools remain the same
+    if (permissions.create && ['create_directory', 'xml_to_json'].includes(tool.name)) {
+      return true;
+    }
+
+    if (permissions.edit && ['edit_file'].includes(tool.name)) {
+      return true;
+    }
+
+    if (permissions.move && ['move_file'].includes(tool.name)) {
+      return true;
+    }
+
+    return false;
+  }) : allTools;
 
   return {
     tools,
@@ -624,22 +732,54 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      case "write_file": {
+      case "create_file": {
         const parsed = WriteFileArgsSchema.safeParse(args);
         if (!parsed.success) {
-          throw new Error(`Invalid arguments for write_file: ${parsed.error}`);
-        }
-        
-        // Check if server is in readonly mode
-        if (readonlyFlag) {
-          throw new Error('Cannot write file: server is in read-only mode');
+          throw new Error(`Invalid arguments for create_file: ${parsed.error}`);
         }
         
         const validPath = await validatePath(parsed.data.path);
-        await fs.writeFile(validPath, parsed.data.content, "utf-8");
-        return {
-          content: [{ type: "text", text: `Successfully wrote to ${parsed.data.path}` }],
-        };
+        
+        // Check if file exists
+        try {
+          await fs.access(validPath);
+          throw new Error('Cannot create file: file already exists');
+        } catch (error) {
+          // File doesn't exist - proceed with creation
+          if (!permissions.create && !permissions.fullAccess) {
+            throw new Error('Cannot create new file: create permission not granted (requires --allow-create)');
+          }
+          
+          await fs.writeFile(validPath, parsed.data.content, "utf-8");
+          return {
+            content: [{ type: "text", text: `Successfully created ${parsed.data.path}` }],
+          };
+        }
+      }
+
+      case "modify_file": {
+        const parsed = WriteFileArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for modify_file: ${parsed.error}`);
+        }
+        
+        const validPath = await validatePath(parsed.data.path);
+        
+        // Check if file exists
+        try {
+          await fs.access(validPath);
+          
+          if (!permissions.edit && !permissions.fullAccess) {
+            throw new Error('Cannot modify file: edit permission not granted (requires --allow-edit)');
+          }
+          
+          await fs.writeFile(validPath, parsed.data.content, "utf-8");
+          return {
+            content: [{ type: "text", text: `Successfully modified ${parsed.data.path}` }],
+          };
+        } catch (error) {
+          throw new Error('Cannot modify file: file does not exist');
+        }
       }
 
       case "edit_file": {
@@ -648,9 +788,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error(`Invalid arguments for edit_file: ${parsed.error}`);
         }
         
-        // Check if server is in readonly mode
-        if (readonlyFlag) {
-          throw new Error('Cannot edit file: server is in read-only mode');
+        // Enforce permission checks
+        if (!permissions.edit && !permissions.fullAccess) {
+          throw new Error('Cannot edit file: edit permission not granted (requires --allow-edit)');
         }
         
         const validPath = await validatePath(parsed.data.path);
@@ -666,9 +806,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error(`Invalid arguments for create_directory: ${parsed.error}`);
         }
         
-        // Check if server is in readonly mode
-        if (readonlyFlag) {
-          throw new Error('Cannot create directory: server is in read-only mode');
+        // Enforce permission checks
+        if (!permissions.create && !permissions.fullAccess) {
+          throw new Error('Cannot create directory: create permission not granted (requires --allow-create)');
         }
         
         const validPath = await validatePath(parsed.data.path);
@@ -742,9 +882,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           throw new Error(`Invalid arguments for move_file: ${parsed.error}`);
         }
         
-        // Check if server is in readonly mode
-        if (readonlyFlag) {
-          throw new Error('Cannot move file: server is in read-only mode');
+        // Enforce permission checks
+        if (!permissions.move && !permissions.fullAccess) {
+          throw new Error('Cannot move file: move permission not granted (requires --allow-move)');
         }
         
         const validSourcePath = await validatePath(parsed.data.source);
@@ -806,6 +946,103 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "xml_to_json": {
+        const parsed = XmlToJsonArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for xml_to_json: ${parsed.error}`);
+        }
+        
+        const validXmlPath = await validatePath(parsed.data.xmlPath);
+        const validJsonPath = await validatePath(parsed.data.jsonPath);
+        
+        try {
+          // Read the XML file
+          const xmlContent = await fs.readFile(validXmlPath, "utf-8");
+          
+          // Parse XML to JSON
+          const parserOptions = {
+            ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
+            preserveOrder: parsed.data.options?.preserveOrder ?? true,
+            // Add other options as needed
+          };
+          
+          const parser = new XMLParser(parserOptions);
+          const jsonObj = parser.parse(xmlContent);
+          
+          // Format JSON if requested
+          const format = parsed.data.options?.format ?? true;
+          const indentSize = parsed.data.options?.indentSize ?? 2;
+          const jsonContent = format 
+            ? JSON.stringify(jsonObj, null, indentSize) 
+            : JSON.stringify(jsonObj);
+          
+          // Check if JSON file exists to determine if this is a create operation
+          let fileExists = false;
+          try {
+            await fs.access(validJsonPath);
+            fileExists = true;
+          } catch (error) {
+            // File doesn't exist - this is a create operation
+          }
+          
+          // Enforce permission checks for writing
+          if (fileExists && !permissions.edit && !permissions.fullAccess) {
+            throw new Error('Cannot write to existing JSON file: edit permission not granted (requires --allow-edit)');
+          }
+          
+          if (!fileExists && !permissions.create && !permissions.fullAccess) {
+            throw new Error('Cannot create new JSON file: create permission not granted (requires --allow-create)');
+          }
+          
+          // Write JSON to file
+          await fs.writeFile(validJsonPath, jsonContent, "utf-8");
+          
+          return {
+            content: [{ 
+              type: "text", 
+              text: `Successfully converted XML from ${parsed.data.xmlPath} to JSON at ${parsed.data.jsonPath}` 
+            }],
+          };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to convert XML to JSON: ${errorMessage}`);
+        }
+      }
+      
+      case "xml_to_json_string": {
+        const parsed = XmlToJsonStringArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for xml_to_json_string: ${parsed.error}`);
+        }
+        
+        const validXmlPath = await validatePath(parsed.data.xmlPath);
+        
+        try {
+          // Read the XML file
+          const xmlContent = await fs.readFile(validXmlPath, "utf-8");
+          
+          // Parse XML to JSON
+          const parserOptions = {
+            ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
+            preserveOrder: parsed.data.options?.preserveOrder ?? true,
+            // Add other options as needed
+          };
+          
+          const parser = new XMLParser(parserOptions);
+          const jsonObj = parser.parse(xmlContent);
+          
+          // Return the JSON as a string
+          const jsonContent = JSON.stringify(jsonObj, null, 2);
+          
+          return {
+            content: [{ type: "text", text: jsonContent }],
+          };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to convert XML to JSON: ${errorMessage}`);
+        }
+      }
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -826,6 +1063,18 @@ async function runServer() {
   console.error("Allowed directories:", allowedDirectories);
   if (readonlyFlag) {
     console.error("Server running in read-only mode");
+  } else {
+    // Log permission state
+    const permState = [];
+    if (permissions.fullAccess) {
+      permState.push("full access (create, edit, move)");
+    } else {
+      if (permissions.create) permState.push("create");
+      if (permissions.edit) permState.push("edit");
+      if (permissions.move) permState.push("move");
+      if (permState.length === 0) permState.push("read-only");
+    }
+    console.error(`Server running with permissions: ${permState.join(", ")}`);
   }
   if (noFollowSymlinks) {
     console.error("Server running with symlink following disabled");

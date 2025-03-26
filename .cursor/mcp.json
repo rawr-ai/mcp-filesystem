@@ -1,0 +1,53 @@
+{
+	"mcpServers": {
+		"Civ7-resources-filesystem": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/",
+				"--no-follow-symlinks"
+			]
+		},
+		"mcp-test-readonly": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--readonly"
+			]
+		},
+		"mcp-test-create-only": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-create"
+			]
+		},
+		"mcp-test-edit-only": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-edit"
+			]
+		},
+		"mcp-test-move-only": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-move"
+			]
+		},
+		"mcp-test-create-and-edit": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-create",
+				"--allow-edit"
+			]
+		}
+	}
+}
