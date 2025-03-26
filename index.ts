@@ -200,6 +200,8 @@ const ReadMultipleFilesArgsSchema = z.object({
   paths: z.array(z.string()),
 });
 
+const GetPermissionsArgsSchema = z.object({});
+
 const WriteFileArgsSchema = z.object({
   path: z.string(),
   content: z.string(),
@@ -600,6 +602,17 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
     },
     
+    // New get_permissions tool
+    {
+      name: "get_permissions",
+      description:
+        "Returns the current permission state of the server, including which operations " +
+        "are allowed (create, edit, move, delete) and whether the server is in read-only mode " +
+        "or has full access. Use this to understand what operations are permitted before " +
+        "attempting them.",
+      inputSchema: zodToJsonSchema(GetPermissionsArgsSchema) as ToolInput,
+    },
+    
     // Write tools (filtered based on permissions)
     {
       name: "create_file",
@@ -698,7 +711,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     // These tools are always available
     if (['read_file', 'read_multiple_files', 'list_directory', 'directory_tree', 
          'search_files', 'find_files_by_extension', 'get_file_info', 
-         'list_allowed_directories', 'xml_to_json_string'].includes(tool.name)) {
+         'list_allowed_directories', 'xml_to_json_string', 'get_permissions'].includes(tool.name)) {
       return true;
     }
 
@@ -1145,6 +1158,27 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           }
           throw new Error(`Failed to delete directory: ${msg}`);
         }
+      }
+
+      case "get_permissions": {
+        return {
+          content: [{
+            type: "text",
+            text: `Current permission state:
+readOnly: ${readonlyFlag}
+followSymlinks: ${!noFollowSymlinks}
+fullAccess: ${permissions.fullAccess}
+
+Operations allowed:
+- create: ${permissions.create}
+- edit: ${permissions.edit}
+- move: ${permissions.move}
+- delete: ${permissions.delete}
+
+Server was started with ${allowedDirectories.length} allowed ${allowedDirectories.length === 1 ? 'directory' : 'directories'}.
+Use 'list_allowed_directories' to see them.`
+          }],
+        };
       }
 
       default:
