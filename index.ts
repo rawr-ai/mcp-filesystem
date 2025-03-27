@@ -17,6 +17,26 @@ import { minimatch } from 'minimatch';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
 import { XmlQueryArgsSchema, XmlStructureArgsSchema } from './src/schemas/utility-operations.js';
+import {
+  handleJsonQuery,
+  handleJsonFilter,
+  handleJsonGetValue,
+  handleJsonTransform,
+  handleJsonStructure,
+  handleJsonSample,
+  handleJsonValidate,
+  handleJsonSearchKv
+} from './src/handlers/json-handlers.js';
+import {
+  JsonQueryArgsSchema,
+  JsonFilterArgsSchema,
+  JsonGetValueArgsSchema,
+  JsonTransformArgsSchema,
+  JsonStructureArgsSchema,
+  JsonSampleArgsSchema,
+  JsonValidateArgsSchema,
+  JsonSearchKvArgsSchema
+} from './src/schemas/json-operations.js';
 
 // Command line argument parsing
 const args = process.argv.slice(2);
@@ -726,6 +746,73 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "This tool requires the --allow-delete permission.",
       inputSchema: zodToJsonSchema(DeleteDirectoryArgsSchema) as ToolInput,
     },
+    // JSON tools
+    {
+      name: "json_query",
+      description:
+        "Query JSON data using JSONPath expressions. Provides powerful search " +
+        "capabilities for selecting data within JSON structures. Supports standard " +
+        "JSONPath syntax for finding values, arrays, and nested structures. " +
+        "The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonQueryArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_structure",
+      description:
+        "Get the structure of a JSON file by analyzing its top-level keys and their types. " +
+        "Returns a mapping of key names to their corresponding data types (string, number, array, etc). " +
+        "For arrays, it also indicates the type of the first element if available. " +
+        "This is useful for understanding the shape of large JSON files without loading their entire content. " +
+        "The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonStructureArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_filter",
+      description:
+        "Filter JSON array data using flexible conditions. Supports various comparison " +
+        "operators (equals, greater than, contains, etc.) and can combine multiple " +
+        "conditions with AND/OR logic. Perfect for filtering collections of objects " +
+        "based on their properties. The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonFilterArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_get_value",
+      description:
+        "Get a specific value from a JSON file using a field path. Supports dot notation " +
+        "for accessing nested properties and array indices. Returns the value directly, " +
+        "properly formatted. The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonGetValueArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_transform",
+      description:
+        "Transform JSON data using a sequence of operations. Supports operations like " +
+        "mapping array elements, grouping by fields, sorting, flattening nested arrays, " +
+        "and picking/omitting fields. Operations are applied in sequence to transform " +
+        "the data structure. The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonTransformArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_sample",
+      description:
+        "Sample JSON data from a JSON file. Returns a random sample of data from the JSON file. " +
+        "The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonSampleArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_validate",
+      description:
+        "Validate JSON data against a JSON schema. Returns true if the JSON data is valid against the schema, " +
+        "or false if it is not. The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonValidateArgsSchema) as ToolInput,
+    },
+    {
+      name: "json_search_kv",
+      description:
+        "Search for key-value pairs in a JSON file. Returns all key-value pairs that match the search pattern. " +
+        "The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(JsonSearchKvArgsSchema) as ToolInput,
+    },
   ];
 
   // Filter tools based on permissions
@@ -734,7 +821,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     if (['read_file', 'read_multiple_files', 'list_directory', 'directory_tree', 
          'search_files', 'find_files_by_extension', 'get_file_info', 
          'list_allowed_directories', 'xml_to_json_string', 'get_permissions',
-         'xml_query', 'xml_structure'].includes(tool.name)) {
+         'xml_query', 'xml_structure',
+         'json_query', 'json_filter', 'json_get_value', 'json_transform', 'json_structure', 'json_sample', 'json_validate', 'json_search_kv'].includes(tool.name)) {
       return true;
     }
 
@@ -1240,6 +1328,38 @@ Server was started with ${allowedDirectories.length} allowed ${allowedDirectorie
 Use 'list_allowed_directories' to see them.`
           }],
         };
+      }
+
+      case "json_query": {
+        return await handleJsonQuery(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_structure": {
+        return await handleJsonStructure(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_filter": {
+        return await handleJsonFilter(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_get_value": {
+        return await handleJsonGetValue(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_transform": {
+        return await handleJsonTransform(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_sample": {
+        return await handleJsonSample(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_validate": {
+        return await handleJsonValidate(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "json_search_kv": {
+        return await handleJsonSearchKv(args, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       default:
