@@ -185,6 +185,31 @@ Node.js server implementing Model Context Protocol (MCP) for filesystem operatio
   - Requires `read` permission for XML file
   - Returns JSON string representation
 
+- **xml_query**
+  - Query XML file using XPath expressions
+  - Inputs:
+    - `path` (string): Path to the XML file
+    - `query` (string, optional): XPath query to execute
+    - `structureOnly` (boolean, optional): Return only tag structure
+    - `maxBytes` (number, optional): Maximum bytes to read (default: 1MB)
+    - `includeAttributes` (boolean, optional): Include attribute info (default: true)
+  - XPath examples:
+    - Get all elements: `//tagname`
+    - Get elements with specific attribute: `//tagname[@attr="value"]`
+    - Get text content: `//tagname/text()`
+  - Memory efficient for large XML files
+  - Returns JSON representation of query results or structure
+
+- **xml_structure**
+  - Analyze XML structure without reading entire file
+  - Inputs:
+    - `path` (string): Path to the XML file
+    - `depth` (number, optional): How deep to analyze (default: 2)
+    - `includeAttributes` (boolean, optional): Include attribute analysis
+    - `maxBytes` (number, optional): Maximum bytes to read (default: 1MB)
+  - Returns statistical information about elements, attributes, and structure
+  - Useful for understanding large XML files before detailed analysis
+
 ## Permissions & Security
 
 The server implements a comprehensive security model with granular permission controls:

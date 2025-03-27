@@ -15,6 +15,8 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 import { diffLines, createTwoFilesPatch } from 'diff';
 import { minimatch } from 'minimatch';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
+import { XmlQueryArgsSchema, XmlStructureArgsSchema } from './src/schemas/utility-operations.js';
 
 // Command line argument parsing
 const args = process.argv.slice(2);
@@ -662,6 +664,26 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       inputSchema: zodToJsonSchema(MoveFileArgsSchema) as ToolInput,
     },
     {
+      name: "xml_query",
+      description:
+        "Query XML file using XPath expressions. Provides powerful search " +
+        "capabilities without reading the entire file into memory. " +
+        "Supports standard XPath 1.0 query syntax for finding elements, attributes, " +
+        "and text content. Can be used to extract specific data from large XML files " +
+        "with precise queries. The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(XmlQueryArgsSchema) as ToolInput,
+    },
+    {
+      name: "xml_structure",
+      description:
+        "Analyze XML file structure without reading the entire file. " +
+        "Returns statistical information about element counts, attribute usage, " +
+        "namespaces, and hierarchical structure. Useful for understanding the " +
+        "structure of large XML files before performing detailed queries. " +
+        "The path must be within allowed directories.",
+      inputSchema: zodToJsonSchema(XmlStructureArgsSchema) as ToolInput,
+    },
+    {
       name: "xml_to_json",
       description:
         "Convert an XML file to JSON format and optionally save it to a new file. " +
@@ -711,7 +733,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     // These tools are always available
     if (['read_file', 'read_multiple_files', 'list_directory', 'directory_tree', 
          'search_files', 'find_files_by_extension', 'get_file_info', 
-         'list_allowed_directories', 'xml_to_json_string', 'get_permissions'].includes(tool.name)) {
+         'list_allowed_directories', 'xml_to_json_string', 'get_permissions',
+         'xml_query', 'xml_structure'].includes(tool.name)) {
       return true;
     }
 
@@ -1000,6 +1023,44 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             text: `Allowed directories:\n${allowedDirectories.join('\n')}`
           }],
         };
+      }
+
+      case "xml_query": {
+        const parsed = XmlQueryArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for xml_query: ${parsed.error}`);
+        }
+        
+        const result = await handleXmlQuery(
+          args,
+          allowedDirectories,
+          symlinksMap,
+          noFollowSymlinks
+        ).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to query XML: ${errorMessage}`);
+        });
+        
+        return result;
+      }
+
+      case "xml_structure": {
+        const parsed = XmlStructureArgsSchema.safeParse(args);
+        if (!parsed.success) {
+          throw new Error(`Invalid arguments for xml_structure: ${parsed.error}`);
+        }
+        
+        const result = await handleXmlStructure(
+          args,
+          allowedDirectories,
+          symlinksMap,
+          noFollowSymlinks
+        ).catch((error) => {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          throw new Error(`Failed to analyze XML structure: ${errorMessage}`);
+        });
+        
+        return result;
       }
 
       case "xml_to_json": {
