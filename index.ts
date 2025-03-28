@@ -17,6 +17,8 @@ import { minimatch } from 'minimatch';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
 import { XmlQueryArgsSchema, XmlStructureArgsSchema } from './src/schemas/utility-operations.js';
+import { searchFiles, findFilesByExtension, FileInfo } from './src/utils/file-utils.js';
+import { normalizePath, expandHome, validatePath } from './src/utils/path-utils.js';
 import {
   handleJsonQuery,
   handleJsonFilter,
@@ -37,6 +39,31 @@ import {
   JsonValidateArgsSchema,
   JsonSearchKvArgsSchema
 } from './src/schemas/json-operations.js';
+import {
+  handleReadFile,
+  handleReadMultipleFiles,
+  handleCreateFile,
+  handleModifyFile,
+  handleEditFile,
+  handleGetFileInfo,
+  handleMoveFile,
+  handleDeleteFile,
+  handleRenameFile
+} from './src/handlers/file-handlers.js';
+import {
+  handleCreateDirectory,
+  handleListDirectory,
+  handleDirectoryTree,
+  handleDeleteDirectory
+} from './src/handlers/directory-handlers.js';
+import {
+  handleSearchFiles,
+  handleFindFilesByExtension,
+  handleGetPermissions,
+  handleXmlToJson,
+  handleXmlToJsonString,
+  handleListAllowedDirectories
+} from './src/handlers/utility-handlers.js';
 
 // Command line argument parsing
 const args = process.argv.slice(2);
@@ -50,6 +77,7 @@ const allowCreate = args.includes('--allow-create');
 const allowEdit = args.includes('--allow-edit');
 const allowMove = args.includes('--allow-move');
 const allowDelete = args.includes('--allow-delete');
+const allowRename = args.includes('--allow-rename');
 
 // Permission calculation
 // readonly flag overrides all other permissions as a safety mechanism
@@ -60,6 +88,7 @@ const permissions = {
   edit: !readonlyFlag && (fullAccessFlag || allowEdit),
   move: !readonlyFlag && (fullAccessFlag || allowMove),
   delete: !readonlyFlag && (fullAccessFlag || allowDelete),
+  rename: !readonlyFlag && (fullAccessFlag || allowRename),
   // fullAccess is true only if the flag is explicitly set and not in readonly mode
   fullAccess: !readonlyFlag && fullAccessFlag
 };
@@ -86,22 +115,13 @@ if (allowMove) {
 if (allowDelete) {
   args.splice(args.indexOf('--allow-delete'), 1);
 }
+if (allowRename) {
+  args.splice(args.indexOf('--allow-rename'), 1);
+}
 
 if (args.length === 0) {
-  console.error("Usage: mcp-server-filesystem [--full-access] [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] [--allow-delete] <allowed-directory> [additional-directories...]");
+  console.error("Usage: mcp-server-filesystem [--full-access] [--readonly] [--no-follow-symlinks] [--allow-create] [--allow-edit] [--allow-move] [--allow-delete] [--allow-rename] <allowed-directory> [additional-directories...]");
   process.exit(1);
-}
-
-// Normalize all paths consistently
-function normalizePath(p: string): string {
-  return path.normalize(p);
-}
-
-function expandHome(filepath: string): string {
-  if (filepath.startsWith('~/') || filepath === '~') {
-    return path.join(os.homedir(), filepath.slice(1));
-  }
-  return filepath;
 }
 
 // Store allowed directories in normalized form
@@ -132,7 +152,11 @@ await Promise.all(args.map(async (dir) => {
         if (!allowedDirectories.includes(normalizedRealPath)) {
           allowedDirectories.push(normalizedRealPath);
         }
+        // Validate the real path
+        await validatePath(normalizedRealPath, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
+      // Validate the original path
+      await validatePath(dir, allowedDirectories, symlinksMap, noFollowSymlinks);
     } catch (error) {
       // If we can't resolve the real path, just continue
       console.error(`Warning: Could not resolve real path for ${dir}:`, error);
@@ -142,76 +166,6 @@ await Promise.all(args.map(async (dir) => {
     process.exit(1);
   }
 }));
-
-// Security utilities
-async function validatePath(requestedPath: string): Promise<string> {
-  const expandedPath = expandHome(requestedPath);
-  const absolute = path.isAbsolute(expandedPath)
-    ? path.resolve(expandedPath)
-    : path.resolve(process.cwd(), expandedPath);
-
-  const normalizedRequested = normalizePath(absolute);
-
-  // Check if path is within allowed directories
-  const isAllowed = allowedDirectories.some(dir => normalizedRequested.startsWith(dir));
-  if (!isAllowed) {
-    // Check if it's a real path that matches a symlink we know about
-    const matchingSymlink = Array.from(symlinksMap.entries()).find(([realPath, symlinkPath]) => 
-      normalizedRequested.startsWith(realPath)
-    );
-    
-    if (matchingSymlink) {
-      const [realPath, symlinkPath] = matchingSymlink;
-      // Convert the path from real path to symlink path
-      const relativePath = normalizedRequested.substring(realPath.length);
-      const symlinkEquivalent = path.join(symlinkPath, relativePath);
-      
-      // Return the symlink path instead
-      return symlinkEquivalent;
-    }
-    
-    throw new Error(`Access denied - path outside allowed directories: ${absolute} not in ${allowedDirectories.join(', ')}`);
-  }
-
-  // Handle symlinks by checking their real path
-  try {
-    const realPath = await fs.realpath(absolute);
-    const normalizedReal = normalizePath(realPath);
-    
-    // If the real path is different from the requested path, it's a symlink
-    if (normalizedReal !== normalizedRequested) {
-      // Store this mapping for future reference
-      symlinksMap.set(normalizedReal, normalizedRequested);
-      
-      // Make sure the real path is also allowed
-      const isRealPathAllowed = allowedDirectories.some(dir => normalizedReal.startsWith(dir));
-      if (!isRealPathAllowed) {
-        throw new Error("Access denied - symlink target outside allowed directories");
-      }
-      
-      // If no-follow-symlinks is true, return the original path
-      if (noFollowSymlinks) {
-        return absolute;
-      }
-    }
-    
-    return realPath;
-  } catch (error) {
-    // For new files that don't exist yet, verify parent directory
-    const parentDir = path.dirname(absolute);
-    try {
-      const realParentPath = await fs.realpath(parentDir);
-      const normalizedParent = normalizePath(realParentPath);
-      const isParentAllowed = allowedDirectories.some(dir => normalizedParent.startsWith(dir));
-      if (!isParentAllowed) {
-        throw new Error("Access denied - parent directory outside allowed directories");
-      }
-      return absolute;
-    } catch {
-      throw new Error(`Parent directory does not exist: ${parentDir}`);
-    }
-  }
-}
 
 // Schema definitions
 const ReadFileArgsSchema = z.object({
@@ -282,6 +236,11 @@ const DeleteDirectoryArgsSchema = z.object({
   recursive: z.boolean().default(false).describe('Whether to recursively delete the directory and all contents')
 });
 
+const RenameFileArgsSchema = z.object({
+  path: z.string().describe('Path to the file to be renamed'),
+  newName: z.string().describe('New name for the file (without path)')
+});
+
 const XmlToJsonArgsSchema = z.object({
   xmlPath: z.string().describe('Path to the XML file to convert'),
   jsonPath: z.string().describe('Path where the JSON should be saved'),
@@ -304,16 +263,6 @@ const XmlToJsonStringArgsSchema = z.object({
 const ToolInputSchema = ToolSchema.shape.inputSchema;
 type ToolInput = z.infer<typeof ToolInputSchema>;
 
-interface FileInfo {
-  size: number;
-  created: Date;
-  modified: Date;
-  accessed: Date;
-  isDirectory: boolean;
-  isFile: boolean;
-  permissions: string;
-}
-
 // Server setup
 const server = new Server(
   {
@@ -326,220 +275,6 @@ const server = new Server(
     },
   },
 );
-
-// Tool implementations
-async function getFileStats(filePath: string): Promise<FileInfo> {
-  const stats = await fs.stat(filePath);
-  return {
-    size: stats.size,
-    created: stats.birthtime,
-    modified: stats.mtime,
-    accessed: stats.atime,
-    isDirectory: stats.isDirectory(),
-    isFile: stats.isFile(),
-    permissions: stats.mode.toString(8).slice(-3),
-  };
-}
-
-async function searchFiles(
-  rootPath: string,
-  pattern: string,
-  excludePatterns: string[] = []
-): Promise<string[]> {
-  const results: string[] = [];
-
-  async function search(currentPath: string) {
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(currentPath, entry.name);
-
-      try {
-        // Validate each path before processing
-        await validatePath(fullPath);
-
-        // Check if path matches any exclude pattern
-        const relativePath = path.relative(rootPath, fullPath);
-        const shouldExclude = excludePatterns.some(pattern => {
-          const globPattern = pattern.includes('*') ? pattern : `**/${pattern}/**`;
-          return minimatch(relativePath, globPattern, { dot: true });
-        });
-
-        if (shouldExclude) {
-          continue;
-        }
-
-        if (entry.name.toLowerCase().includes(pattern.toLowerCase())) {
-          results.push(fullPath);
-        }
-
-        if (entry.isDirectory()) {
-          await search(fullPath);
-        }
-      } catch (error) {
-        // Skip invalid paths during search
-        continue;
-      }
-    }
-  }
-
-  await search(rootPath);
-  return results;
-}
-
-// Add a new function for finding files by extension
-async function findFilesByExtension(
-  rootPath: string,
-  extension: string,
-  excludePatterns: string[] = []
-): Promise<string[]> {
-  const results: string[] = [];
-  
-  // Normalize the extension (remove leading dot if present)
-  let normalizedExtension = extension.toLowerCase();
-  if (normalizedExtension.startsWith('.')) {
-    normalizedExtension = normalizedExtension.substring(1);
-  }
-  
-  async function searchDirectory(currentPath: string) {
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = path.join(currentPath, entry.name);
-
-      try {
-        // Validate each path before processing
-        await validatePath(fullPath);
-
-        // Check if path matches any exclude pattern
-        const relativePath = path.relative(rootPath, fullPath);
-        const shouldExclude = excludePatterns.some(pattern => {
-          const globPattern = pattern.includes('*') ? pattern : `**/${pattern}/**`;
-          return minimatch(relativePath, globPattern, { dot: true });
-        });
-
-        if (shouldExclude) {
-          continue;
-        }
-
-        if (entry.isFile()) {
-          // Check if file has the requested extension
-          const fileExtension = path.extname(entry.name).toLowerCase().substring(1);
-          if (fileExtension === normalizedExtension) {
-            results.push(fullPath);
-          }
-        } else if (entry.isDirectory()) {
-          // Recursively search subdirectories
-          await searchDirectory(fullPath);
-        }
-      } catch (error) {
-        // Skip invalid paths during search
-        continue;
-      }
-    }
-  }
-
-  await searchDirectory(rootPath);
-  return results;
-}
-
-// file editing and diffing utilities
-function normalizeLineEndings(text: string): string {
-  return text.replace(/\r\n/g, '\n');
-}
-
-function createUnifiedDiff(originalContent: string, newContent: string, filepath: string = 'file'): string {
-  // Ensure consistent line endings for diff
-  const normalizedOriginal = normalizeLineEndings(originalContent);
-  const normalizedNew = normalizeLineEndings(newContent);
-
-  return createTwoFilesPatch(
-    filepath,
-    filepath,
-    normalizedOriginal,
-    normalizedNew,
-    'original',
-    'modified'
-  );
-}
-
-async function applyFileEdits(
-  filePath: string,
-  edits: Array<{oldText: string, newText: string}>,
-  dryRun = false
-): Promise<string> {
-  // Read file content and normalize line endings
-  const content = normalizeLineEndings(await fs.readFile(filePath, 'utf-8'));
-
-  // Apply edits sequentially
-  let modifiedContent = content;
-  for (const edit of edits) {
-    const normalizedOld = normalizeLineEndings(edit.oldText);
-    const normalizedNew = normalizeLineEndings(edit.newText);
-
-    // If exact match exists, use it
-    if (modifiedContent.includes(normalizedOld)) {
-      modifiedContent = modifiedContent.replace(normalizedOld, normalizedNew);
-      continue;
-    }
-
-    // Otherwise, try line-by-line matching with flexibility for whitespace
-    const oldLines = normalizedOld.split('\n');
-    const contentLines = modifiedContent.split('\n');
-    let matchFound = false;
-
-    for (let i = 0; i <= contentLines.length - oldLines.length; i++) {
-      const potentialMatch = contentLines.slice(i, i + oldLines.length);
-
-      // Compare lines with normalized whitespace
-      const isMatch = oldLines.every((oldLine, j) => {
-        const contentLine = potentialMatch[j];
-        return oldLine.trim() === contentLine.trim();
-      });
-
-      if (isMatch) {
-        // Preserve original indentation of first line
-        const originalIndent = contentLines[i].match(/^\s*/)?.[0] || '';
-        const newLines = normalizedNew.split('\n').map((line, j) => {
-          if (j === 0) return originalIndent + line.trimStart();
-          // For subsequent lines, try to preserve relative indentation
-          const oldIndent = oldLines[j]?.match(/^\s*/)?.[0] || '';
-          const newIndent = line.match(/^\s*/)?.[0] || '';
-          if (oldIndent && newIndent) {
-            const relativeIndent = newIndent.length - oldIndent.length;
-            return originalIndent + ' '.repeat(Math.max(0, relativeIndent)) + line.trimStart();
-          }
-          return line;
-        });
-
-        contentLines.splice(i, oldLines.length, ...newLines);
-        modifiedContent = contentLines.join('\n');
-        matchFound = true;
-        break;
-      }
-    }
-
-    if (!matchFound) {
-      throw new Error(`Could not find exact match for edit:\n${edit.oldText}`);
-    }
-  }
-
-  // Create unified diff
-  const diff = createUnifiedDiff(content, modifiedContent, filePath);
-
-  // Format diff with appropriate number of backticks
-  let numBackticks = 3;
-  while (diff.includes('`'.repeat(numBackticks))) {
-    numBackticks++;
-  }
-  const formattedDiff = `${'`'.repeat(numBackticks)}diff\n${diff}${'`'.repeat(numBackticks)}\n\n`;
-
-  if (!dryRun) {
-    await fs.writeFile(filePath, modifiedContent, 'utf-8');
-  }
-
-  return formattedDiff;
-}
 
 // Tool handlers
 server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -648,7 +383,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "modify_file",
       description:
-        "Modify an existing file with new content. " +
+        "COMPLETELY REPLACE the contents of an existing file with new content. " +
+        "Use this tool when you need to overwrite an entire file, not for making partial changes. " +
+        "COMPARE WITH edit_file: modify_file replaces the entire file content while edit_file makes targeted changes to specific sections. " +
         "Will fail if the file does not exist. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-edit permission.",
@@ -657,8 +394,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "edit_file",
       description:
-        "Make line-based edits to a text file. Each edit replaces exact line sequences " +
-        "with new content. Returns a git-style diff showing the changes made. " +
+        "Make TARGETED CHANGES to specific parts of a text file while preserving the rest. " +
+        "Each edit operation finds and replaces specific text sequences with new content. " +
+        "COMPARE WITH modify_file: edit_file makes partial changes while modify_file completely replaces file content. " +
+        "Returns a git-style diff showing the changes made. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-edit permission.",
       inputSchema: zodToJsonSchema(EditFileArgsSchema) as ToolInput,
@@ -666,22 +405,34 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "create_directory",
       description:
-        "Create a new directory or ensure a directory exists. Can create multiple " +
-        "nested directories in one operation. If the directory already exists, " +
-        "this operation will succeed silently. Perfect for setting up directory " +
-        "structures for projects or ensuring required paths exist. Only works within allowed directories. " +
+        "Create a new directory structure at the specified path. " +
+        "Can create multiple nested directories in one operation (mkdir -p behavior). " +
+        "If the directory already exists, this operation will succeed silently. " +
+        "COMPARE WITH move_file: create_directory creates new directories while move_file moves existing files/directories. " +
+        "Only works within allowed directories. " +
         "This tool requires the --allow-create permission.",
       inputSchema: zodToJsonSchema(CreateDirectoryArgsSchema) as ToolInput,
     },
     {
       name: "move_file",
       description:
-        "Move or rename files and directories. Can move files between directories " +
-        "and rename them in a single operation. If the destination exists, the " +
-        "operation will fail. Works across different directories and can be used " +
-        "for simple renaming within the same directory. Both source and destination must be within allowed directories. " +
+        "Move or rename files and directories to a new location. " +
+        "IMPORTANT: The destination parent directory must already exist - this tool doesn't create directories. " +
+        "COMPARE WITH create_directory: move_file relocates existing files/directories but doesn't create new directory structures. " +
+        "If the destination path already exists, the operation will fail. " +
+        "Both source and destination must be within allowed directories. " +
         "This tool requires the --allow-move permission.",
       inputSchema: zodToJsonSchema(MoveFileArgsSchema) as ToolInput,
+    },
+    {
+      name: "rename_file",
+      description:
+        "Rename a file within its current directory. " +
+        "COMPARE WITH move_file: rename_file only changes the filename while keeping it in the same directory. " +
+        "Will fail if a file with the new name already exists in the directory. " +
+        "Only works within allowed directories. " +
+        "This tool requires the --allow-rename permission.",
+      inputSchema: zodToJsonSchema(RenameFileArgsSchema) as ToolInput,
     },
     {
       name: "xml_query",
@@ -730,8 +481,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "delete_file",
       description:
-        "Delete a file at the specified path. " +
-        "Will fail if the file does not exist. " +
+        "Delete a SINGLE FILE at the specified path. " +
+        "COMPARE WITH delete_directory: delete_file only works on individual files and will fail if used on directories. " +
+        "Will fail if the file does not exist or if the path points to a directory. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-delete permission.",
       inputSchema: zodToJsonSchema(DeleteFileArgsSchema) as ToolInput,
@@ -739,9 +491,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     {
       name: "delete_directory",
       description:
-        "Delete a directory at the specified path. " +
-        "Can optionally delete recursively with all contents. " +
-        "Will fail if the directory is not empty and recursive is false. " +
+        "Delete a DIRECTORY at the specified path. " +
+        "COMPARE WITH delete_file: delete_directory is for removing directories while delete_file is for individual files. " +
+        "By default, will fail if the directory is not empty - set recursive=true to delete all contents. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-delete permission.",
       inputSchema: zodToJsonSchema(DeleteDirectoryArgsSchema) as ToolInput,
@@ -847,6 +599,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     if (permissions.move && ['move_file'].includes(tool.name)) {
       return true;
     }
+    
+    if (permissions.rename && ['rename_file'].includes(tool.name)) {
+      return true;
+    }
 
     if (permissions.delete && ['delete_file', 'delete_directory'].includes(tool.name)) {
       return true;
@@ -866,468 +622,87 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case "read_file": {
-        const parsed = ReadFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for read_file: ${parsed.error}`);
-        }
-        const validPath = await validatePath(parsed.data.path);
-        const content = await fs.readFile(validPath, "utf-8");
-        return {
-          content: [{ type: "text", text: content }],
-        };
+        return await handleReadFile(args, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "read_multiple_files": {
-        const parsed = ReadMultipleFilesArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for read_multiple_files: ${parsed.error}`);
-        }
-        const results = await Promise.all(
-          parsed.data.paths.map(async (filePath: string) => {
-            try {
-              const validPath = await validatePath(filePath);
-              const content = await fs.readFile(validPath, "utf-8");
-              return `${filePath}:\n${content}\n`;
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : String(error);
-              return `${filePath}: Error - ${errorMessage}`;
-            }
-          }),
-        );
-        return {
-          content: [{ type: "text", text: results.join("\n---\n") }],
-        };
+        return await handleReadMultipleFiles(args, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "create_file": {
-        const parsed = WriteFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for create_file: ${parsed.error}`);
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        
-        // Check if file exists
-        try {
-          await fs.access(validPath);
-          throw new Error('Cannot create file: file already exists');
-        } catch (error) {
-          // File doesn't exist - proceed with creation
-          if (!permissions.create && !permissions.fullAccess) {
-            throw new Error('Cannot create new file: create permission not granted (requires --allow-create)');
-          }
-          
-          await fs.writeFile(validPath, parsed.data.content, "utf-8");
-          return {
-            content: [{ type: "text", text: `Successfully created ${parsed.data.path}` }],
-          };
-        }
+        return await handleCreateFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "modify_file": {
-        const parsed = WriteFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for modify_file: ${parsed.error}`);
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        
-        // Check if file exists
-        try {
-          await fs.access(validPath);
-          
-          if (!permissions.edit && !permissions.fullAccess) {
-            throw new Error('Cannot modify file: edit permission not granted (requires --allow-edit)');
-          }
-          
-          await fs.writeFile(validPath, parsed.data.content, "utf-8");
-          return {
-            content: [{ type: "text", text: `Successfully modified ${parsed.data.path}` }],
-          };
-        } catch (error) {
-          throw new Error('Cannot modify file: file does not exist');
-        }
+        return await handleModifyFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "edit_file": {
-        const parsed = EditFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for edit_file: ${parsed.error}`);
-        }
-        
-        // Enforce permission checks
-        if (!permissions.edit && !permissions.fullAccess) {
-          throw new Error('Cannot edit file: edit permission not granted (requires --allow-edit)');
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        const result = await applyFileEdits(validPath, parsed.data.edits, parsed.data.dryRun);
-        return {
-          content: [{ type: "text", text: result }],
-        };
+        return await handleEditFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "create_directory": {
-        const parsed = CreateDirectoryArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for create_directory: ${parsed.error}`);
-        }
-        
-        // Enforce permission checks
-        if (!permissions.create && !permissions.fullAccess) {
-          throw new Error('Cannot create directory: create permission not granted (requires --allow-create)');
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        await fs.mkdir(validPath, { recursive: true });
-        return {
-          content: [{ type: "text", text: `Successfully created directory ${parsed.data.path}` }],
-        };
+        return await handleCreateDirectory(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "list_directory": {
-        const parsed = ListDirectoryArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for list_directory: ${parsed.error}`);
-        }
-        const validPath = await validatePath(parsed.data.path);
-        const entries = await fs.readdir(validPath, { withFileTypes: true });
-        const formatted = entries
-          .map((entry) => `${entry.isDirectory() ? "[DIR]" : "[FILE]"} ${entry.name}`)
-          .join("\n");
-        return {
-          content: [{ type: "text", text: formatted }],
-        };
+        return await handleListDirectory(args, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
-        case "directory_tree": {
-            const parsed = DirectoryTreeArgsSchema.safeParse(args);
-            if (!parsed.success) {
-                throw new Error(`Invalid arguments for directory_tree: ${parsed.error}`);
-            }
-
-            interface TreeEntry {
-                name: string;
-                type: 'file' | 'directory';
-                children?: TreeEntry[];
-            }
-
-            async function buildTree(currentPath: string): Promise<TreeEntry[]> {
-                const validPath = await validatePath(currentPath);
-                const entries = await fs.readdir(validPath, {withFileTypes: true});
-                const result: TreeEntry[] = [];
-
-                for (const entry of entries) {
-                    const entryData: TreeEntry = {
-                        name: entry.name,
-                        type: entry.isDirectory() ? 'directory' : 'file'
-                    };
-
-                    if (entry.isDirectory()) {
-                        const subPath = path.join(currentPath, entry.name);
-                        entryData.children = await buildTree(subPath);
-                    }
-
-                    result.push(entryData);
-                }
-
-                return result;
-            }
-
-            const treeData = await buildTree(parsed.data.path);
-            return {
-                content: [{
-                    type: "text",
-                    text: JSON.stringify(treeData, null, 2)
-                }],
-            };
-        }
+      case "directory_tree": {
+        return await handleDirectoryTree(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
 
       case "move_file": {
-        const parsed = MoveFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for move_file: ${parsed.error}`);
-        }
-        
-        // Enforce permission checks
-        if (!permissions.move && !permissions.fullAccess) {
-          throw new Error('Cannot move file: move permission not granted (requires --allow-move)');
-        }
-        
-        const validSourcePath = await validatePath(parsed.data.source);
-        const validDestPath = await validatePath(parsed.data.destination);
-        await fs.rename(validSourcePath, validDestPath);
-        return {
-          content: [{ type: "text", text: `Successfully moved ${parsed.data.source} to ${parsed.data.destination}` }],
-        };
+        return await handleMoveFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
-      case "search_files": {
-        const parsed = SearchFilesArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for search_files: ${parsed.error}`);
-        }
-        const validPath = await validatePath(parsed.data.path);
-        const results = await searchFiles(validPath, parsed.data.pattern, parsed.data.excludePatterns);
-        return {
-          content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matches found" }],
-        };
-      }
-
-      case "find_files_by_extension": {
-        const parsed = FindFilesByExtensionArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for find_files_by_extension: ${parsed.error}`);
-        }
-        const validPath = await validatePath(parsed.data.path);
-        const results = await findFilesByExtension(
-          validPath, 
-          parsed.data.extension, 
-          parsed.data.excludePatterns
-        );
-        return {
-          content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matching files found" }],
-        };
-      }
-
-      case "get_file_info": {
-        const parsed = GetFileInfoArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for get_file_info: ${parsed.error}`);
-        }
-        const validPath = await validatePath(parsed.data.path);
-        const info = await getFileStats(validPath);
-        return {
-          content: [{ type: "text", text: Object.entries(info)
-            .map(([key, value]) => `${key}: ${value}`)
-            .join("\n") }],
-        };
-      }
-
-      case "list_allowed_directories": {
-        return {
-          content: [{
-            type: "text",
-            text: `Allowed directories:\n${allowedDirectories.join('\n')}`
-          }],
-        };
-      }
-
-      case "xml_query": {
-        const parsed = XmlQueryArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for xml_query: ${parsed.error}`);
-        }
-        
-        const result = await handleXmlQuery(
-          args,
-          allowedDirectories,
-          symlinksMap,
-          noFollowSymlinks
-        ).catch((error) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to query XML: ${errorMessage}`);
-        });
-        
-        return result;
-      }
-
-      case "xml_structure": {
-        const parsed = XmlStructureArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for xml_structure: ${parsed.error}`);
-        }
-        
-        const result = await handleXmlStructure(
-          args,
-          allowedDirectories,
-          symlinksMap,
-          noFollowSymlinks
-        ).catch((error) => {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to analyze XML structure: ${errorMessage}`);
-        });
-        
-        return result;
-      }
-
-      case "xml_to_json": {
-        const parsed = XmlToJsonArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for xml_to_json: ${parsed.error}`);
-        }
-        
-        const validXmlPath = await validatePath(parsed.data.xmlPath);
-        const validJsonPath = await validatePath(parsed.data.jsonPath);
-        
-        try {
-          // Read the XML file
-          const xmlContent = await fs.readFile(validXmlPath, "utf-8");
-          
-          // Parse XML to JSON
-          const parserOptions = {
-            ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
-            preserveOrder: parsed.data.options?.preserveOrder ?? true,
-            // Add other options as needed
-          };
-          
-          const parser = new XMLParser(parserOptions);
-          const jsonObj = parser.parse(xmlContent);
-          
-          // Format JSON if requested
-          const format = parsed.data.options?.format ?? true;
-          const indentSize = parsed.data.options?.indentSize ?? 2;
-          const jsonContent = format 
-            ? JSON.stringify(jsonObj, null, indentSize) 
-            : JSON.stringify(jsonObj);
-          
-          // Check if JSON file exists to determine if this is a create operation
-          let fileExists = false;
-          try {
-            await fs.access(validJsonPath);
-            fileExists = true;
-          } catch (error) {
-            // File doesn't exist - this is a create operation
-          }
-          
-          // Enforce permission checks for writing
-          if (fileExists && !permissions.edit && !permissions.fullAccess) {
-            throw new Error('Cannot write to existing JSON file: edit permission not granted (requires --allow-edit)');
-          }
-          
-          if (!fileExists && !permissions.create && !permissions.fullAccess) {
-            throw new Error('Cannot create new JSON file: create permission not granted (requires --allow-create)');
-          }
-          
-          // Write JSON to file
-          await fs.writeFile(validJsonPath, jsonContent, "utf-8");
-          
-          return {
-            content: [{ 
-              type: "text", 
-              text: `Successfully converted XML from ${parsed.data.xmlPath} to JSON at ${parsed.data.jsonPath}` 
-            }],
-          };
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to convert XML to JSON: ${errorMessage}`);
-        }
-      }
-      
-      case "xml_to_json_string": {
-        const parsed = XmlToJsonStringArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for xml_to_json_string: ${parsed.error}`);
-        }
-        
-        const validXmlPath = await validatePath(parsed.data.xmlPath);
-        
-        try {
-          // Read the XML file
-          const xmlContent = await fs.readFile(validXmlPath, "utf-8");
-          
-          // Parse XML to JSON
-          const parserOptions = {
-            ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
-            preserveOrder: parsed.data.options?.preserveOrder ?? true,
-            // Add other options as needed
-          };
-          
-          const parser = new XMLParser(parserOptions);
-          const jsonObj = parser.parse(xmlContent);
-          
-          // Return the JSON as a string
-          const jsonContent = JSON.stringify(jsonObj, null, 2);
-          
-          return {
-            content: [{ type: "text", text: jsonContent }],
-          };
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          throw new Error(`Failed to convert XML to JSON: ${errorMessage}`);
-        }
-      }
-
-      case "delete_file": {
-        const parsed = DeleteFileArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for delete_file: ${parsed.error}`);
-        }
-        
-        // Enforce permission checks
-        if (!permissions.delete && !permissions.fullAccess) {
-          throw new Error('Cannot delete file: delete permission not granted (requires --allow-delete)');
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        
-        try {
-          // Check if file exists
-          await fs.access(validPath);
-          await fs.unlink(validPath);
-          return {
-            content: [{ type: "text", text: `Successfully deleted ${parsed.data.path}` }],
-          };
-        } catch (error) {
-          throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : String(error)}`);
-        }
+      case "rename_file": {
+        return await handleRenameFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "delete_directory": {
-        const parsed = DeleteDirectoryArgsSchema.safeParse(args);
-        if (!parsed.success) {
-          throw new Error(`Invalid arguments for delete_directory: ${parsed.error}`);
-        }
-        
-        // Enforce permission checks
-        if (!permissions.delete && !permissions.fullAccess) {
-          throw new Error('Cannot delete directory: delete permission not granted (requires --allow-delete)');
-        }
-        
-        const validPath = await validatePath(parsed.data.path);
-        
-        try {
-          if (parsed.data.recursive) {
-            // Safety confirmation for recursive delete
-            await fs.rm(validPath, { recursive: true, force: true });
-            return {
-              content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path} and all its contents` }],
-            };
-          } else {
-            // Non-recursive directory delete
-            await fs.rmdir(validPath);
-            return {
-              content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path}` }],
-            };
-          }
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          if (msg.includes('ENOTEMPTY')) {
-            throw new Error(`Cannot delete directory: directory is not empty. Use recursive=true to delete with contents.`);
-          }
-          throw new Error(`Failed to delete directory: ${msg}`);
-        }
+        return await handleDeleteDirectory(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "search_files": {
+        return await handleSearchFiles(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "find_files_by_extension": {
+        return await handleFindFilesByExtension(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "get_file_info": {
+        return await handleGetFileInfo(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "list_allowed_directories": {
+        return handleListAllowedDirectories(args, allowedDirectories);
       }
 
       case "get_permissions": {
-        return {
-          content: [{
-            type: "text",
-            text: `Current permission state:
-readOnly: ${readonlyFlag}
-followSymlinks: ${!noFollowSymlinks}
-fullAccess: ${permissions.fullAccess}
+        return handleGetPermissions(args, permissions, readonlyFlag, noFollowSymlinks, allowedDirectories);
+      }
 
-Operations allowed:
-- create: ${permissions.create}
-- edit: ${permissions.edit}
-- move: ${permissions.move}
-- delete: ${permissions.delete}
+      case "xml_query": {
+        return await handleXmlQuery(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
 
-Server was started with ${allowedDirectories.length} allowed ${allowedDirectories.length === 1 ? 'directory' : 'directories'}.
-Use 'list_allowed_directories' to see them.`
-          }],
-        };
+      case "xml_structure": {
+        return await handleXmlStructure(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "xml_to_json": {
+        return await handleXmlToJson(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+      
+      case "xml_to_json_string": {
+        return await handleXmlToJsonString(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "delete_file": {
+        return await handleDeleteFile(args, permissions, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       case "json_query": {
@@ -1391,6 +766,7 @@ async function runServer() {
     if (permissions.create) permState.push("create");
     if (permissions.edit) permState.push("edit");
     if (permissions.move) permState.push("move");
+    if (permissions.rename) permState.push("rename");
     if (permissions.delete) permState.push("delete");
     if (permState.length === 0) {
       console.error("Server running in default read-only mode (use --full-access or specific --allow-* flags to enable write operations)");

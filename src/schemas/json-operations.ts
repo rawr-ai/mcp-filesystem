@@ -11,6 +11,8 @@ export const JsonQueryArgsSchema = z.object({
 // Schema for filtering JSON arrays
 export const JsonFilterArgsSchema = z.object({
   path: z.string().describe('Path to the JSON file to filter'),
+  arrayPath: z.string().optional()
+    .describe('Optional JSONPath expression to locate the target array (e.g., "$.items" or "$.data.records")'),
   conditions: z.array(z.object({
     field: z.string().describe('Path to the field to check (e.g., "address.city" or "tags[0]")'),
     operator: z.enum([

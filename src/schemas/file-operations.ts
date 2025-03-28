@@ -35,4 +35,9 @@ export const MoveFileArgsSchema = z.object({
 
 export const DeleteFileArgsSchema = z.object({
   path: z.string(),
+});
+
+export const RenameFileArgsSchema = z.object({
+  path: z.string().describe('Path to the file to be renamed'),
+  newName: z.string().describe('New name for the file (without path)')
 }); 

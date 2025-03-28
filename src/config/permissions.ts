@@ -3,6 +3,7 @@ export interface Permissions {
   edit: boolean;
   move: boolean;
   delete: boolean;
+  rename: boolean;
   fullAccess: boolean;
 }
 
@@ -24,6 +25,7 @@ export function parseCommandLineArgs(args: string[]): ServerConfig {
   const allowEdit = args.includes('--allow-edit');
   const allowMove = args.includes('--allow-move');
   const allowDelete = args.includes('--allow-delete');
+  const allowRename = args.includes('--allow-rename');
 
   // Permission calculation
   // readonly flag overrides all other permissions as a safety mechanism
@@ -34,6 +36,7 @@ export function parseCommandLineArgs(args: string[]): ServerConfig {
     edit: !readonlyFlag && (fullAccessFlag || allowEdit),
     move: !readonlyFlag && (fullAccessFlag || allowMove),
     delete: !readonlyFlag && (fullAccessFlag || allowDelete),
+    rename: !readonlyFlag && (fullAccessFlag || allowRename),
     // fullAccess is true only if the flag is explicitly set and not in readonly mode
     fullAccess: !readonlyFlag && fullAccessFlag
   };
@@ -44,7 +47,7 @@ export function parseCommandLineArgs(args: string[]): ServerConfig {
   if (cleanArgs.length === 0) {
     throw new Error(
       "Usage: mcp-server-filesystem [--full-access] [--readonly] [--no-follow-symlinks] " +
-      "[--allow-create] [--allow-edit] [--allow-move] [--allow-delete] " +
+      "[--allow-create] [--allow-edit] [--allow-move] [--allow-delete] [--allow-rename] " +
       "<allowed-directory> [additional-directories...]"
     );
   }

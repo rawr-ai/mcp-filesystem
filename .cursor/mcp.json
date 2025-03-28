@@ -58,6 +58,14 @@
 				"--allow-move"
 			]
 		},
+		"mcp-test-rename-tool": {
+			"command": "node",
+			"args": [
+				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+				"~/Desktop/mcp-test",
+				"--allow-rename"
+			]
+		},
 		"mcp-test-create-and-edit": {
 			"command": "node",
 			"args": [

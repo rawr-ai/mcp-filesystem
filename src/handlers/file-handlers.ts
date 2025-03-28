@@ -9,8 +9,10 @@ import {
   EditFileArgsSchema,
   GetFileInfoArgsSchema,
   MoveFileArgsSchema,
-  DeleteFileArgsSchema
+  DeleteFileArgsSchema,
+  RenameFileArgsSchema
 } from '../schemas/file-operations.js';
+import path from 'path';
 
 export async function handleReadFile(
   args: unknown,
@@ -215,4 +217,51 @@ export async function handleDeleteFile(
   } catch (error) {
     throw new Error(`Failed to delete file: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+export async function handleRenameFile(
+  args: unknown,
+  permissions: Permissions,
+  allowedDirectories: string[],
+  symlinksMap: Map<string, string>,
+  noFollowSymlinks: boolean
+) {
+  const parsed = RenameFileArgsSchema.safeParse(args);
+  if (!parsed.success) {
+    throw new Error(`Invalid arguments for rename_file: ${parsed.error}`);
+  }
+  
+  // Enforce permission checks - rename requires the rename permission
+  if (!permissions.rename && !permissions.fullAccess) {
+    throw new Error('Cannot rename file: rename permission not granted (requires --allow-rename)');
+  }
+  
+  const validSourcePath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  
+  // Get the directory from the source path
+  const directory = path.dirname(validSourcePath);
+  
+  // Create the destination path using the same directory and the new name
+  const destinationPath = path.join(directory, parsed.data.newName);
+  
+  // Validate the destination path
+  const validDestPath = await validatePath(destinationPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  
+  // Check if destination already exists
+  try {
+    await fs.access(validDestPath);
+    throw new Error(`Cannot rename file: a file with name "${parsed.data.newName}" already exists in the directory`);
+  } catch (error) {
+    // We want this error - it means the destination doesn't exist yet
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
+  }
+  
+  // Perform the rename operation
+  await fs.rename(validSourcePath, validDestPath);
+  
+  return {
+    content: [{ type: "text", text: `Successfully renamed ${parsed.data.path} to ${parsed.data.newName}` }],
+  };
 } 

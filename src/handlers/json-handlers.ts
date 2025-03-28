@@ -88,14 +88,71 @@ export async function handleJsonFilter(
   const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
   const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
 
-  // Ensure we're working with an array
-  if (!Array.isArray(jsonData)) {
-    throw new Error('JSON data must be an array for filtering');
-  }
-
   try {
-    const filtered = jsonData.filter((item) => {
-      const results = parsed.data.conditions.map(condition => {
+    let dataToFilter: any[] = [];
+    
+    // Check if arrayPath is provided
+    if (parsed.data.arrayPath) {
+      // Use JSONPath to locate the target array
+      const targetArray = JSONPath({
+        path: parsed.data.arrayPath,
+        json: jsonData,
+        wrap: false
+      });
+
+      if (!Array.isArray(targetArray)) {
+        throw new Error(`Path "${parsed.data.arrayPath}" did not resolve to an array`);
+      }
+      
+      dataToFilter = targetArray;
+    } 
+    // No arrayPath provided, use automatic detection for simple cases
+    else {
+      if (_.isArray(jsonData)) {
+        // Direct array case
+        dataToFilter = jsonData;
+      } else if (_.isPlainObject(jsonData)) {
+        // Find all array properties at the top level
+        const arrayProps = _.pickBy(jsonData, _.isArray);
+        
+        if (_.size(arrayProps) === 1) {
+          // If exactly one array property, use it automatically
+          dataToFilter = _.values(arrayProps)[0] as any[];
+        } else if (_.size(arrayProps) > 1) {
+          // Multiple arrays found, can't automatically determine which to use
+          throw new Error(
+            'Multiple arrays found in the JSON data. ' +
+            'Please provide the "arrayPath" parameter to specify which array to filter. ' +
+            'Example: "$.items" or "$.data.resources"'
+          );
+        } else {
+          // No arrays found at the top level
+          throw new Error(
+            'No arrays found in the JSON data. ' +
+            'Please provide the "arrayPath" parameter to specify the path to the array to filter. ' +
+            'Example: "$.items" or "$.data.resources"'
+          );
+        }
+      } else {
+        // Not an object or array
+        throw new Error(
+          'The JSON data is not an array or an object containing arrays. ' +
+          'Please provide valid JSON data with arrays to filter.'
+        );
+      }
+    }
+    
+    // If we still couldn't find an array to filter, throw a helpful error
+    if (!_.isArray(dataToFilter) || _.isEmpty(dataToFilter)) {
+      throw new Error(
+        'Could not find a valid array to filter in the JSON data. ' +
+        'Please make sure the file contains an array or specify the correct arrayPath parameter.'
+      );
+    }
+
+    // Now filter the array using lodash predicates
+    const filtered = _.filter(dataToFilter, (item) => {
+      const results = _.map(parsed.data.conditions, condition => {
         const value = _.get(item, condition.field);
         
         switch (condition.operator) {
@@ -112,15 +169,15 @@ export async function handleJsonFilter(
           case 'lte':
             return value <= condition.value;
           case 'contains':
-            return typeof value === 'string' 
-              ? value.includes(String(condition.value))
-              : Array.isArray(value) && value.some(v => _.isEqual(v, condition.value));
+            return _.isString(value) 
+              ? _.includes(value, String(condition.value))
+              : _.isArray(value) && _.some(value, v => _.isEqual(v, condition.value));
           case 'startsWith':
-            return typeof value === 'string' && value.startsWith(String(condition.value));
+            return _.isString(value) && _.startsWith(value, String(condition.value));
           case 'endsWith':
-            return typeof value === 'string' && value.endsWith(String(condition.value));
+            return _.isString(value) && _.endsWith(value, String(condition.value));
           case 'exists':
-            return value !== undefined;
+            return !_.isUndefined(value);
           case 'type':
             return typeof value === condition.value;
           default:
@@ -129,8 +186,8 @@ export async function handleJsonFilter(
       });
 
       return parsed.data.match === 'all' 
-        ? results.every(Boolean)
-        : results.some(Boolean);
+        ? _.every(results)
+        : _.some(results);
     });
 
     return {

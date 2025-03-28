@@ -35,6 +35,7 @@ Operations allowed:
 - create: ${permissions.create}
 - edit: ${permissions.edit}
 - move: ${permissions.move}
+- rename: ${permissions.rename}
 - delete: ${permissions.delete}
 
 Server was started with ${allowedDirectories.length} allowed ${allowedDirectories.length === 1 ? 'directory' : 'directories'}.
@@ -187,4 +188,16 @@ export async function handleXmlToJsonString(
     const errorMessage = error instanceof Error ? error.message : String(error);
     throw new Error(`Failed to convert XML to JSON: ${errorMessage}`);
   }
+}
+
+export function handleListAllowedDirectories(
+  args: unknown,
+  allowedDirectories: string[]
+): { content: [{ type: string; text: string }] } {
+  return {
+    content: [{
+      type: "text",
+      text: `Allowed directories:\n${allowedDirectories.join('\n')}`
+    }],
+  };
 } 
