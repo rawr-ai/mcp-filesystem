@@ -1,0 +1,16 @@
+# Configuration for project: filesystem
+services:
+  - id: filesystem-main  # Service ID (used for default naming)
+    # container_name: "custom-name"  # Optional: Specify custom container name
+    # port_default: 8001             # Optional: Specify custom host port
+    group_id: "filesystem"       # Graph group ID
+    entity_dir: "entities"           # Relative path to entity definitions within ai/graph
+    environment:                   # Optional: Add non-secret env vars here
+      GRAPHITI_LOG_LEVEL: "debug"
+  - id: filesystem-meta  # Service ID (used for default naming)
+    # container_name: "custom-name"  # Optional: Specify custom container name
+    # port_default: 8001             # Optional: Specify custom host port
+    group_id: "filesystem-meta"       # Graph group ID
+    entity_dir: "entities"           # Relative path to entity definitions within ai/graph
+    # environment:                   # Optional: Add non-secret env vars here
+      # GRAPHITI_LOG_LEVEL: "debug"

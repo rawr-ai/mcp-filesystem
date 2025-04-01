@@ -151,4 +151,4 @@ Before using the filesystem server:
     - File sizes before reading contents
     - Directory entry counts before tree traversal
 5.  **Choose the appropriate tool(s)** for the task.
-6.  **Respect the sandbox** and permissions. Do not attempt operations known to be disallowed. 
+6.  **Respect the sandbox** and permissions. Do not attempt operations known to be disallowed.
