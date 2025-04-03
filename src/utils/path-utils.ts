@@ -21,9 +21,10 @@ export async function validatePath(
   noFollowSymlinks: boolean
 ): Promise<string> {
   const expandedPath = expandHome(requestedPath);
+  // Resolve absolute paths directly, resolve relative paths against the first allowed directory
   const absolute = path.isAbsolute(expandedPath)
     ? path.resolve(expandedPath)
-    : path.resolve(process.cwd(), expandedPath);
+    : path.resolve(allowedDirectories[0], expandedPath);
 
   const normalizedRequested = normalizePath(absolute);
 
