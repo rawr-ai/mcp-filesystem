@@ -1,98 +1,98 @@
 {
-	"mcpServers": {
-		"filesystem-mcp-knowledge-graph": {
-			"transport": "sse",
-			"url": "http://localhost:8001/sse"
-		},
-		"filesystem-mcp-directory": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/",
-				"--no-follow-symlinks",
-				"--readonly"
-			]
-		},
-		"mcp-test-readonly": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--readonly"
-			]
-		},
-		"mcp-test-full-access": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--full-access"
-			]
-		},
-		"mcp-test-readonly-override": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--full-access",
-				"--readonly"
-			]
-		},
-		"mcp-test-create-only": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-create"
-			]
-		},
-		"mcp-test-edit-only": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-edit"
-			]
-		},
-		"mcp-test-move-only": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-move"
-			]
-		},
-		"mcp-test-rename-tool": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-rename"
-			]
-		},
-		"mcp-test-create-and-edit": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-create",
-				"--allow-edit"
-			]
-		},
-		"mcp-test-delete-only": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test",
-				"--allow-delete"
-			]
-		},
-		"mcp-test-default": {
-			"command": "node",
-			"args": [
-				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-				"~/Desktop/mcp-test"
-			]
-		}
-	}
+  "mcpServers": {
+    "filesystem-mcp-directory": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/",
+        "--no-follow-symlinks",
+        "--readonly"
+      ]
+    },
+    "mcp-test-readonly": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--readonly"
+      ]
+    },
+    "mcp-test-full-access": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--full-access"
+      ]
+    },
+    "mcp-test-readonly-override": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--full-access",
+        "--readonly"
+      ]
+    },
+    "mcp-test-create-only": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-create"
+      ]
+    },
+    "mcp-test-edit-only": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-edit"
+      ]
+    },
+    "mcp-test-move-only": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-move"
+      ]
+    },
+    "mcp-test-rename-tool": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-rename"
+      ]
+    },
+    "mcp-test-create-and-edit": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-create",
+        "--allow-edit"
+      ]
+    },
+    "mcp-test-delete-only": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test",
+        "--allow-delete"
+      ]
+    },
+    "mcp-test-default": {
+      "command": "node",
+      "args": [
+        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
+        "~/Desktop/mcp-test"
+      ]
+    },
+    "graphiti-filesystem": {
+      "transport": "sse",
+      "url": "http://localhost:8001/sse"
+    }
+  }
 }

@@ -313,8 +313,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       name: "directory_tree",
       description:
           "Get a recursive tree view of files and directories as a JSON structure. " +
+          "Supports depth limiting to control traversal depth and exclusion patterns using glob syntax. " +
           "Each entry includes 'name', 'type' (file/directory), and 'children' for directories. " +
           "Files have no children array, while directories always have a children array (which may be empty). " +
+          "Use depth parameter to limit how deep the traversal goes, and excludePatterns to filter out unwanted files/directories. " +
           "The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
       inputSchema: zodToJsonSchema(DirectoryTreeArgsSchema) as ToolInput,
     },

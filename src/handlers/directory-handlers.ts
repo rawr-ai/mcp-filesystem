@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { minimatch } from 'minimatch';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
 import {
@@ -70,20 +71,62 @@ export async function handleDirectoryTree(
     throw new Error(`Invalid arguments for directory_tree: ${parsed.error}`);
   }
 
-  async function buildTree(currentPath: string): Promise<TreeEntry[]> {
+  const { path: startPath, depth: maxDepth, excludePatterns } = parsed.data;
+  const validatedStartPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+
+  async function buildTree(
+    currentPath: string,
+    basePath: string,
+    currentDepth: number,
+    maxDepth?: number,
+    excludePatterns?: string[]
+  ): Promise<TreeEntry[]> {
+    // Depth check
+    if (maxDepth !== undefined && currentDepth >= maxDepth) {
+      return []; // Stop traversal if max depth is reached
+    }
+
     const validPath = await validatePath(currentPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-    const entries = await fs.readdir(validPath, { withFileTypes: true });
+    
+    let entries;
+    try {
+      entries = await fs.readdir(validPath, { withFileTypes: true });
+    } catch (error) {
+      // Handle cases where directory might not be readable
+      console.error(`Error reading directory ${validPath}: ${error}`);
+      return [];
+    }
+    
     const result: TreeEntry[] = [];
 
     for (const entry of entries) {
+      const entryFullPath = path.join(currentPath, entry.name);
+      const entryRelativePath = path.relative(basePath, entryFullPath);
+
+      // Exclusion check using minimatch
+      if (excludePatterns && excludePatterns.length > 0) {
+        const shouldExclude = excludePatterns.some(pattern =>
+          minimatch(entryRelativePath, pattern, { dot: true, matchBase: true })
+        );
+        if (shouldExclude) {
+          continue; // Skip this entry if it matches any exclude pattern
+        }
+      }
+
       const entryData: TreeEntry = {
         name: entry.name,
         type: entry.isDirectory() ? 'directory' : 'file'
       };
 
       if (entry.isDirectory()) {
-        const subPath = path.join(currentPath, entry.name);
-        entryData.children = await buildTree(subPath);
+        // Recursive call with incremented depth
+        entryData.children = await buildTree(
+          entryFullPath,
+          basePath,
+          currentDepth + 1,
+          maxDepth,
+          excludePatterns
+        );
       }
 
       result.push(entryData);
@@ -92,7 +135,15 @@ export async function handleDirectoryTree(
     return result;
   }
 
-  const treeData = await buildTree(parsed.data.path);
+  // Initial call to buildTree with base parameters
+  const treeData = await buildTree(
+    validatedStartPath, 
+    validatedStartPath, 
+    0, 
+    maxDepth, 
+    excludePatterns
+  );
+  
   return {
     content: [{
       type: "text",

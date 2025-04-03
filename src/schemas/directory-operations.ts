@@ -10,6 +10,8 @@ export const ListDirectoryArgsSchema = z.object({
 
 export const DirectoryTreeArgsSchema = z.object({
   path: z.string(),
+  depth: z.number().int().positive().optional().describe('Maximum depth to traverse. If omitted, traverses indefinitely.'),
+  excludePatterns: z.array(z.string()).optional().default([]).describe('Glob patterns for files/directories to exclude (e.g., "*.log", "node_modules").')
 });
 
 export const DeleteDirectoryArgsSchema = z.object({
