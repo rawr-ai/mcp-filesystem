@@ -24,7 +24,16 @@ export async function handleReadFile(
   if (!parsed.success) {
     throw new Error(`Invalid arguments for read_file: ${parsed.error}`);
   }
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const { path: filePath, maxBytes } = parsed.data;
+  const validPath = await validatePath(filePath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  
+  // Check file size before reading
+  const stats = await fs.stat(validPath);
+  const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
+  if (stats.size > effectiveMaxBytes) {
+    throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+  }
+  
   const content = await fs.readFile(validPath, "utf-8");
   return {
     content: [{ type: "text", text: content }],
@@ -41,10 +50,20 @@ export async function handleReadMultipleFiles(
   if (!parsed.success) {
     throw new Error(`Invalid arguments for read_multiple_files: ${parsed.error}`);
   }
+  const { paths, maxBytesPerFile } = parsed.data;
+  const effectiveMaxBytes = maxBytesPerFile ?? (10 * 1024); // Default 10KB per file
+  
   const results = await Promise.all(
-    parsed.data.paths.map(async (filePath: string) => {
+    paths.map(async (filePath: string) => {
       try {
         const validPath = await validatePath(filePath, allowedDirectories, symlinksMap, noFollowSymlinks);
+        
+        // Check file size before reading
+        const stats = await fs.stat(validPath);
+        if (stats.size > effectiveMaxBytes) {
+          return `${filePath}: Error - File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`;
+        }
+        
         const content = await fs.readFile(validPath, "utf-8");
         return `${filePath}:\n${content}\n`;
       } catch (error) {
@@ -70,22 +89,37 @@ export async function handleCreateFile(
     throw new Error(`Invalid arguments for create_file: ${parsed.error}`);
   }
   
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validPath = await validatePath(
+    parsed.data.path,
+    allowedDirectories,
+    symlinksMap,
+    noFollowSymlinks,
+    { checkParentExists: false } // Add this option
+  );
   
-  // Check if file exists
+  // Check if file already exists before writing
   try {
     await fs.access(validPath);
-    throw new Error('Cannot create file: file already exists');
+    // If access succeeds, file exists
+    throw new Error(`File already exists: ${parsed.data.path}`);
   } catch (error) {
-    // File doesn't exist - proceed with creation
-    if (!permissions.create && !permissions.fullAccess) {
-      throw new Error('Cannot create new file: create permission not granted (requires --allow-create)');
-    }
-    
-    await fs.writeFile(validPath, parsed.data.content, "utf-8");
-    return {
-      content: [{ type: "text", text: `Successfully created ${parsed.data.path}` }],
-    };
+     const msg = error instanceof Error ? error.message : String(error);
+     if (!msg.includes('ENOENT')) { // Rethrow if it's not a "file not found" error
+       throw error;
+     }
+     // If ENOENT, proceed with creation
+     // Ensure create permission
+     if (!permissions.create && !permissions.fullAccess) {
+        throw new Error('Cannot create new file: create permission not granted (requires --allow-create)');
+     }
+     // Ensure parent directory exists
+     const parentDir = path.dirname(validPath);
+     await fs.mkdir(parentDir, { recursive: true });
+
+     await fs.writeFile(validPath, parsed.data.content, "utf-8");
+     return {
+       content: [{ type: "text", text: `Successfully created ${parsed.data.path}` }],
+     };
   }
 }
 
@@ -137,8 +171,17 @@ export async function handleEditFile(
     throw new Error('Cannot edit file: edit permission not granted (requires --allow-edit)');
   }
   
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const result = await applyFileEdits(validPath, parsed.data.edits, parsed.data.dryRun);
+  const { path: filePath, edits, dryRun, maxBytes } = parsed.data;
+  const validPath = await validatePath(filePath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  
+  // Check file size before attempting to read/edit
+  const stats = await fs.stat(validPath);
+  const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
+  if (stats.size > effectiveMaxBytes) {
+    throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes) for editing.`);
+  }
+  
+  const result = await applyFileEdits(validPath, edits, dryRun);
   return {
     content: [{ type: "text", text: result }],
   };
@@ -180,8 +223,23 @@ export async function handleMoveFile(
     throw new Error('Cannot move file: move permission not granted (requires --allow-move)');
   }
   
-  const validSourcePath = await validatePath(parsed.data.source, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const validDestPath = await validatePath(parsed.data.destination, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validSourcePath = await validatePath(parsed.data.source, allowedDirectories, symlinksMap, noFollowSymlinks); // No option here, source must exist
+
+  const validDestPath = await validatePath(
+    parsed.data.destination,
+    allowedDirectories,
+    symlinksMap,
+    noFollowSymlinks,
+    { checkParentExists: false } // Add option here for destination
+  );
+  // Ensure destination parent exists before moving (fs.rename requires parent)
+  const destParentDir = path.dirname(validDestPath);
+  try {
+      await fs.access(destParentDir);
+  } catch {
+      throw new Error(`Destination parent directory does not exist: ${path.dirname(parsed.data.destination)}`);
+  }
+
   await fs.rename(validSourcePath, validDestPath);
   return {
     content: [{ type: "text", text: `Successfully moved ${parsed.data.source} to ${parsed.data.destination}` }],

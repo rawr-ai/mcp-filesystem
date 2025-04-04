@@ -19,13 +19,25 @@ import {
 /**
  * Read and parse a JSON file
  */
-async function readJsonFile(filePath: string, maxBytes?: number): Promise<any> {
+async function readJsonFile(filePath: string, maxBytesInput?: number): Promise<any> {
+  const effectiveMaxBytes = maxBytesInput ?? (10 * 1024); // Default 10KB
   try {
+    // Check file size before reading
+    const stats = await fs.stat(filePath);
+    if (stats.size > effectiveMaxBytes) {
+      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    }
+    
+    // Read file content up to the limit
     const content = await fs.readFile(filePath, {
       encoding: 'utf-8',
-      ...(maxBytes ? { length: maxBytes } : {})
+      // Note: fs.readFile doesn't have a 'length' option like createReadStream's 'end'.
+      // We rely on the pre-check above. If the file is slightly larger but within limits
+      // for parsing start, it might still work, but the size check prevents huge files.
     });
-    return JSON.parse(content);
+    // Attempt to parse only up to maxBytes (approximate)
+    // This is imperfect as JSON parsing needs the full structure. The main protection is the size check.
+    return JSON.parse(content.substring(0, effectiveMaxBytes));
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Failed to read or parse JSON file: ${error.message}`);
@@ -357,7 +369,8 @@ export async function handleJsonStructure(
 
   const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
   const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
-  const { depth = 1, detailedArrayTypes = false } = parsed.data;
+  const { maxDepth, detailedArrayTypes = false } = parsed.data;
+  const effectiveMaxDepth = maxDepth ?? 2; // Default depth 2
 
   try {
     // Define a type that includes our custom type strings
@@ -396,7 +409,7 @@ export async function handleJsonStructure(
       if (_.isPlainObject(value)) {
         const type = 'object' as ValueType;
         // If we haven't reached depth limit and object isn't empty, analyze structure
-        if ((depth === -1 || currentDepth < depth) && !_.isEmpty(value)) {
+        if (currentDepth < effectiveMaxDepth && !_.isEmpty(value)) { // Use effectiveMaxDepth
           const structure: Record<string, any> = {};
           for (const [key, val] of Object.entries(value)) {
             structure[key] = analyzeType(val, currentDepth + 1);
@@ -584,7 +597,8 @@ export async function handleJsonSearchKv(
   }
 
   const validDirPath = await validatePath(parsed.data.directoryPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const { key, value, recursive = true, matchType = 'exact', maxBytes, maxResults = 100 } = parsed.data;
+  const { key, value, recursive = true, matchType = 'exact', maxBytes, maxResults = 10, maxDepth } = parsed.data;
+  const effectiveMaxDepth = maxDepth ?? 2; // Default depth 2
 
   /**
    * Check if a value matches the search criteria
@@ -643,6 +657,8 @@ export async function handleJsonSearchKv(
    */
   async function processFile(filePath: string): Promise<{ file: string; matches: string[] } | null> {
     try {
+      // Pass maxBytes from parsed args to readJsonFile
+      // Use the maxBytes variable destructured earlier
       const jsonData = await readJsonFile(filePath, maxBytes);
       const matches = searchInObject(jsonData);
       return matches.length > 0 ? { file: filePath, matches } : null;
@@ -655,7 +671,11 @@ export async function handleJsonSearchKv(
   /**
    * Recursively get all JSON files in directory
    */
-  async function getJsonFiles(dir: string): Promise<string[]> {
+  async function getJsonFiles(dir: string, currentDepth: number): Promise<string[]> {
+    // Check depth limit
+    if (currentDepth >= effectiveMaxDepth) {
+      return [];
+    }
     const entries = await fs.readdir(dir, { withFileTypes: true });
     const files: string[] = [];
 
@@ -664,7 +684,7 @@ export async function handleJsonSearchKv(
       
       if (entry.isDirectory() && recursive) {
         const validSubPath = await validatePath(fullPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-        files.push(...await getJsonFiles(validSubPath));
+        files.push(...await getJsonFiles(validSubPath, currentDepth + 1));
       } else if (entry.isFile() && entry.name.endsWith('.json')) {
         const validFilePath = await validatePath(fullPath, allowedDirectories, symlinksMap, noFollowSymlinks);
         files.push(validFilePath);
@@ -676,7 +696,7 @@ export async function handleJsonSearchKv(
 
   try {
     // Get all JSON files in the directory
-    const jsonFiles = await getJsonFiles(validDirPath);
+    const jsonFiles = await getJsonFiles(validDirPath, 0); // Start at depth 0
     
     // Process files and collect results
     const results = [];

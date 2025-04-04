@@ -29,11 +29,22 @@ export async function getFileStats(filePath: string): Promise<FileInfo> {
 export async function searchFiles(
   rootPath: string,
   pattern: string,
-  excludePatterns: string[] = []
+  excludePatterns: string[] = [],
+  maxDepth: number = 2, // Default depth
+  maxResults: number = 10 // Default results
 ): Promise<string[]> {
   const results: string[] = [];
 
-  async function search(currentPath: string) {
+  async function search(currentPath: string, currentDepth: number) {
+    // Stop if max depth is reached
+    if (currentDepth >= maxDepth) {
+      return;
+    }
+    
+    // Stop if max results are reached
+    if (results.length >= maxResults) {
+      return;
+    }
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -51,23 +62,34 @@ export async function searchFiles(
       }
 
       if (entry.name.toLowerCase().includes(pattern.toLowerCase())) {
-        results.push(fullPath);
+        if (results.length < maxResults) {
+          results.push(fullPath);
+        }
+        // Check again if max results reached after adding
+        if (results.length >= maxResults) {
+          return; // Stop searching this branch
+        }
       }
 
       if (entry.isDirectory()) {
-        await search(fullPath);
+        // Check results length before recursing
+        if (results.length < maxResults) {
+          await search(fullPath, currentDepth + 1);
+        }
       }
     }
   }
 
-  await search(rootPath);
+  await search(rootPath, 0); // Start search at depth 0
   return results;
 }
 
 export async function findFilesByExtension(
   rootPath: string,
   extension: string,
-  excludePatterns: string[] = []
+  excludePatterns: string[] = [],
+  maxDepth: number = 2, // Default depth
+  maxResults: number = 10 // Default results
 ): Promise<string[]> {
   const results: string[] = [];
   
@@ -77,7 +99,16 @@ export async function findFilesByExtension(
     normalizedExtension = normalizedExtension.substring(1);
   }
   
-  async function searchDirectory(currentPath: string) {
+  async function searchDirectory(currentPath: string, currentDepth: number) {
+    // Stop if max depth is reached
+    if (currentDepth >= maxDepth) {
+      return;
+    }
+    
+    // Stop if max results are reached
+    if (results.length >= maxResults) {
+      return;
+    }
     const entries = await fs.readdir(currentPath, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -98,16 +129,25 @@ export async function findFilesByExtension(
         // Check if file has the requested extension
         const fileExtension = path.extname(entry.name).toLowerCase().substring(1);
         if (fileExtension === normalizedExtension) {
-          results.push(fullPath);
+          if (results.length < maxResults) {
+            results.push(fullPath);
+          }
+          // Check again if max results reached after adding
+          if (results.length >= maxResults) {
+            return; // Stop searching this branch
+          }
         }
       } else if (entry.isDirectory()) {
         // Recursively search subdirectories
-        await searchDirectory(fullPath);
+        // Check results length before recursing
+        if (results.length < maxResults) {
+          await searchDirectory(fullPath, currentDepth + 1);
+        }
       }
     }
   }
 
-  await searchDirectory(rootPath);
+  await searchDirectory(rootPath, 0); // Start search at depth 0
   return results;
 }
 

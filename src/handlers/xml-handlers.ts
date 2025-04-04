@@ -38,11 +38,18 @@ export async function handleXmlQuery(
   );
 
   try {
-    // Create a streaming parser to handle large files
+    // Check file size before creating stream
+    const stats = await fs.stat(validPath);
+    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    if (stats.size > effectiveMaxBytes) {
+      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    }
+
+    // Create a streaming parser to handle large files up to maxBytes
     const stream = createReadStream(validPath, {
       encoding: 'utf8',
       highWaterMark: 64 * 1024, // 64KB chunks
-      end: parsed.data.maxBytes - 1
+      end: effectiveMaxBytes // Read up to the limit
     });
 
     return new Promise((resolve, reject) => {
@@ -100,11 +107,18 @@ export async function handleXmlStructure(
   );
 
   try {
+    // Check file size before creating stream
+    const stats = await fs.stat(validPath);
+    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    if (stats.size > effectiveMaxBytes) {
+      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    }
+    
     let xmlContent = '';
     const stream = createReadStream(validPath, {
       encoding: 'utf8',
       highWaterMark: 64 * 1024,
-      end: parsed.data.maxBytes - 1
+      end: effectiveMaxBytes // Read up to the limit
     });
 
     return new Promise((resolve, reject) => {
@@ -129,7 +143,7 @@ export async function handleXmlStructure(
             const doc = parser.parseFromString(xmlContent, 'text/xml');
             const structure = extractXmlStructure(
               doc,
-              parsed.data.depth,
+              parsed.data.maxDepth, // Use renamed maxDepth
               parsed.data.includeAttributes
             );
 

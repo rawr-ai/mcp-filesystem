@@ -1,4 +1,5 @@
 import fs from 'fs/promises';
+import path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
@@ -54,8 +55,10 @@ export async function handleSearchFiles(
   if (!parsed.success) {
     throw new Error(`Invalid arguments for search_files: ${parsed.error}`);
   }
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const results = await searchFiles(validPath, parsed.data.pattern, parsed.data.excludePatterns);
+  const { path: startPath, pattern, excludePatterns, maxDepth, maxResults } = parsed.data;
+  const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  // TODO: Update searchFiles in file-utils.ts to accept and use maxDepth and maxResults
+  const results = await searchFiles(validPath, pattern, excludePatterns, maxDepth, maxResults);
   return {
     content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matches found" }],
   };
@@ -71,11 +74,15 @@ export async function handleFindFilesByExtension(
   if (!parsed.success) {
     throw new Error(`Invalid arguments for find_files_by_extension: ${parsed.error}`);
   }
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const { path: startPath, extension, excludePatterns, maxDepth, maxResults } = parsed.data;
+  const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  // TODO: Update findFilesByExtension in file-utils.ts to accept and use maxDepth and maxResults
   const results = await findFilesByExtension(
-    validPath, 
-    parsed.data.extension, 
-    parsed.data.excludePatterns
+    validPath,
+    extension,
+    excludePatterns,
+    maxDepth,
+    maxResults
   );
   return {
     content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matching files found" }],
@@ -94,17 +101,31 @@ export async function handleXmlToJson(
     throw new Error(`Invalid arguments for xml_to_json: ${parsed.error}`);
   }
   
-  const validXmlPath = await validatePath(parsed.data.xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const validJsonPath = await validatePath(parsed.data.jsonPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  
+  const { xmlPath, jsonPath, maxBytes, options } = parsed.data;
+  const validXmlPath = await validatePath(xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks); // Source must exist
+
+  const validJsonPath = await validatePath(
+    jsonPath,
+    allowedDirectories,
+    symlinksMap,
+    noFollowSymlinks,
+    { checkParentExists: false } // Add option here for output JSON path
+  );
   try {
+    // Check file size before reading
+    const stats = await fs.stat(validXmlPath);
+    const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
+    if (stats.size > effectiveMaxBytes) {
+      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    }
+    
     // Read the XML file
     const xmlContent = await fs.readFile(validXmlPath, "utf-8");
     
     // Parse XML to JSON
     const parserOptions = {
-      ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
-      preserveOrder: parsed.data.options?.preserveOrder ?? true,
+      ignoreAttributes: options?.ignoreAttributes ?? false,
+      preserveOrder: options?.preserveOrder ?? true,
       // Add other options as needed
     };
     
@@ -112,8 +133,8 @@ export async function handleXmlToJson(
     const jsonObj = parser.parse(xmlContent);
     
     // Format JSON if requested
-    const format = parsed.data.options?.format ?? true;
-    const indentSize = parsed.data.options?.indentSize ?? 2;
+    const format = options?.format ?? true;
+    const indentSize = options?.indentSize ?? 2;
     const jsonContent = format 
       ? JSON.stringify(jsonObj, null, indentSize) 
       : JSON.stringify(jsonObj);
@@ -137,12 +158,15 @@ export async function handleXmlToJson(
     }
     
     // Write JSON to file
+    // Ensure parent dir exists before writing the JSON file
+    const jsonParentDir = path.dirname(validJsonPath);
+    await fs.mkdir(jsonParentDir, { recursive: true }); // Ensure parent exists
     await fs.writeFile(validJsonPath, jsonContent, "utf-8");
     
     return {
       content: [{ 
         type: "text", 
-        text: `Successfully converted XML from ${parsed.data.xmlPath} to JSON at ${parsed.data.jsonPath}` 
+        text: `Successfully converted XML from ${xmlPath} to JSON at ${jsonPath}`
       }],
     };
   } catch (error) {
@@ -162,16 +186,24 @@ export async function handleXmlToJsonString(
     throw new Error(`Invalid arguments for xml_to_json_string: ${parsed.error}`);
   }
   
-  const validXmlPath = await validatePath(parsed.data.xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const { xmlPath, maxBytes, options } = parsed.data;
+  const validXmlPath = await validatePath(xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks);
   
   try {
+    // Check file size before reading
+    const stats = await fs.stat(validXmlPath);
+    const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
+    if (stats.size > effectiveMaxBytes) {
+      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    }
+    
     // Read the XML file
     const xmlContent = await fs.readFile(validXmlPath, "utf-8");
     
     // Parse XML to JSON
     const parserOptions = {
-      ignoreAttributes: parsed.data.options?.ignoreAttributes ?? false,
-      preserveOrder: parsed.data.options?.preserveOrder ?? true,
+      ignoreAttributes: options?.ignoreAttributes ?? false,
+      preserveOrder: options?.preserveOrder ?? true,
       // Add other options as needed
     };
     

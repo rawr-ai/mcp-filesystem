@@ -16,7 +16,15 @@ import { diffLines, createTwoFilesPatch } from 'diff';
 import { minimatch } from 'minimatch';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
-import { XmlQueryArgsSchema, XmlStructureArgsSchema } from './src/schemas/utility-operations.js';
+import {
+  XmlQueryArgsSchema,
+  XmlStructureArgsSchema,
+  SearchFilesArgsSchema,
+  FindFilesByExtensionArgsSchema,
+  GetPermissionsArgsSchema,
+  XmlToJsonArgsSchema,
+  XmlToJsonStringArgsSchema
+} from './src/schemas/utility-operations.js';
 import { searchFiles, findFilesByExtension, FileInfo } from './src/utils/file-utils.js';
 import { normalizePath, expandHome, validatePath } from './src/utils/path-utils.js';
 import {
@@ -40,6 +48,16 @@ import {
   JsonSearchKvArgsSchema
 } from './src/schemas/json-operations.js';
 import {
+  ReadFileArgsSchema,
+  ReadMultipleFilesArgsSchema,
+  WriteFileArgsSchema,
+  EditFileArgsSchema,
+  GetFileInfoArgsSchema,
+  MoveFileArgsSchema,
+  DeleteFileArgsSchema,
+  RenameFileArgsSchema
+} from './src/schemas/file-operations.js';
+import {
   handleReadFile,
   handleReadMultipleFiles,
   handleCreateFile,
@@ -56,6 +74,12 @@ import {
   handleDirectoryTree,
   handleDeleteDirectory
 } from './src/handlers/directory-handlers.js';
+import {
+  CreateDirectoryArgsSchema,
+  ListDirectoryArgsSchema,
+  DirectoryTreeArgsSchema,
+  DeleteDirectoryArgsSchema
+} from './src/schemas/directory-operations.js';
 import {
   handleSearchFiles,
   handleFindFilesByExtension,
@@ -167,99 +191,7 @@ await Promise.all(args.map(async (dir) => {
   }
 }));
 
-// Schema definitions
-const ReadFileArgsSchema = z.object({
-  path: z.string(),
-});
-
-const ReadMultipleFilesArgsSchema = z.object({
-  paths: z.array(z.string()),
-});
-
-const GetPermissionsArgsSchema = z.object({});
-
-const WriteFileArgsSchema = z.object({
-  path: z.string(),
-  content: z.string(),
-});
-
-const EditOperation = z.object({
-  oldText: z.string().describe('Text to search for - must match exactly'),
-  newText: z.string().describe('Text to replace with')
-});
-
-const EditFileArgsSchema = z.object({
-  path: z.string(),
-  edits: z.array(EditOperation),
-  dryRun: z.boolean().default(false).describe('Preview changes using git-style diff format')
-});
-
-const CreateDirectoryArgsSchema = z.object({
-  path: z.string(),
-});
-
-const ListDirectoryArgsSchema = z.object({
-  path: z.string(),
-});
-
-const DirectoryTreeArgsSchema = z.object({
-  path: z.string(),
-});
-
-const MoveFileArgsSchema = z.object({
-  source: z.string(),
-  destination: z.string(),
-});
-
-const SearchFilesArgsSchema = z.object({
-  path: z.string(),
-  pattern: z.string(),
-  excludePatterns: z.array(z.string()).optional().default([])
-});
-
-const FindFilesByExtensionArgsSchema = z.object({
-  path: z.string(),
-  extension: z.string().describe('File extension to search for (e.g., "xml", "json", "ts")'),
-  excludePatterns: z.array(z.string()).optional().default([])
-});
-
-const GetFileInfoArgsSchema = z.object({
-  path: z.string(),
-});
-
-const DeleteFileArgsSchema = z.object({
-  path: z.string(),
-});
-
-const DeleteDirectoryArgsSchema = z.object({
-  path: z.string(),
-  recursive: z.boolean().default(false).describe('Whether to recursively delete the directory and all contents')
-});
-
-const RenameFileArgsSchema = z.object({
-  path: z.string().describe('Path to the file to be renamed'),
-  newName: z.string().describe('New name for the file (without path)')
-});
-
-const XmlToJsonArgsSchema = z.object({
-  xmlPath: z.string().describe('Path to the XML file to convert'),
-  jsonPath: z.string().describe('Path where the JSON should be saved'),
-  options: z.object({
-    ignoreAttributes: z.boolean().default(false).describe('Whether to ignore attributes in XML'),
-    preserveOrder: z.boolean().default(true).describe('Whether to preserve the order of properties'),
-    format: z.boolean().default(true).describe('Whether to format the JSON output'),
-    indentSize: z.number().default(2).describe('Number of spaces for indentation')
-  }).optional().default({})
-});
-
-const XmlToJsonStringArgsSchema = z.object({
-  xmlPath: z.string().describe('Path to the XML file to convert'),
-  options: z.object({
-    ignoreAttributes: z.boolean().default(false).describe('Whether to ignore attributes in XML'),
-    preserveOrder: z.boolean().default(true).describe('Whether to preserve the order of properties')
-  }).optional().default({})
-});
-
+// Schema definitions are now imported from src/schemas/*
 const ToolInputSchema = ToolSchema.shape.inputSchema;
 type ToolInput = z.infer<typeof ToolInputSchema>;
 
@@ -287,7 +219,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Read the complete contents of a file from the file system. " +
         "Handles various text encodings and provides detailed error messages " +
         "if the file cannot be read. Use this tool when you need to examine " +
-        "the contents of a single file. Only works within allowed directories.",
+        "the contents of a single file. Requires `maxBytes` parameter. Only works within allowed directories.",
       inputSchema: zodToJsonSchema(ReadFileArgsSchema) as ToolInput,
     },
     {
@@ -297,7 +229,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "efficient than reading files one by one when you need to analyze " +
         "or compare multiple files. Each file's content is returned with its " +
         "path as a reference. Failed reads for individual files won't stop " +
-        "the entire operation. Only works within allowed directories.",
+        "the entire operation. Requires `maxBytesPerFile` parameter. Only works within allowed directories.",
       inputSchema: zodToJsonSchema(ReadMultipleFilesArgsSchema) as ToolInput,
     },
     {
@@ -316,7 +248,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           "Supports depth limiting to control traversal depth and exclusion patterns using glob syntax. " +
           "Each entry includes 'name', 'type' (file/directory), and 'children' for directories. " +
           "Files have no children array, while directories always have a children array (which may be empty). " +
-          "Use depth parameter to limit how deep the traversal goes, and excludePatterns to filter out unwanted files/directories. " +
+          "Requires `maxDepth` parameter (default 2) to limit recursion. Use excludePatterns to filter out unwanted files/directories. " +
           "The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
       inputSchema: zodToJsonSchema(DirectoryTreeArgsSchema) as ToolInput,
     },
@@ -326,7 +258,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Recursively search for files and directories matching a pattern. " +
         "Searches through all subdirectories from the starting path. The search " +
         "is case-insensitive and matches partial names. Returns full paths to all " +
-        "matching items. Great for finding files when you don't know their exact location. " +
+        "matching items. Requires `maxDepth` (default 2) and `maxResults` (default 10) parameters. Great for finding files when you don't know their exact location. " +
         "Only searches within allowed directories.",
       inputSchema: zodToJsonSchema(SearchFilesArgsSchema) as ToolInput,
     },
@@ -336,7 +268,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Recursively find all files with a specific extension. " +
         "Searches through all subdirectories from the starting path. " +
         "Extension matching is case-insensitive. Returns full paths to all " +
-        "matching files. Perfect for finding all XML, JSON, or other file types " +
+        "matching files. Requires `maxDepth` (default 2) and `maxResults` (default 10) parameters. Perfect for finding all XML, JSON, or other file types " +
         "in a directory structure. Only searches within allowed directories.",
       inputSchema: zodToJsonSchema(FindFilesByExtensionArgsSchema) as ToolInput,
     },
@@ -399,7 +331,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Make TARGETED CHANGES to specific parts of a text file while preserving the rest. " +
         "Each edit operation finds and replaces specific text sequences with new content. " +
         "COMPARE WITH modify_file: edit_file makes partial changes while modify_file completely replaces file content. " +
-        "Returns a git-style diff showing the changes made. " +
+        "Returns a git-style diff showing the changes made. Requires `maxBytes` parameter (default 10KB) to limit initial read size. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-edit permission.",
       inputSchema: zodToJsonSchema(EditFileArgsSchema) as ToolInput,
@@ -442,7 +374,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Query XML file using XPath expressions. Provides powerful search " +
         "capabilities without reading the entire file into memory. " +
         "Supports standard XPath 1.0 query syntax for finding elements, attributes, " +
-        "and text content. Can be used to extract specific data from large XML files " +
+        "and text content. Requires `maxBytes` parameter (default 10KB). Can be used to extract specific data from large XML files " +
         "with precise queries. The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(XmlQueryArgsSchema) as ToolInput,
     },
@@ -452,7 +384,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Analyze XML file structure without reading the entire file. " +
         "Returns statistical information about element counts, attribute usage, " +
         "namespaces, and hierarchical structure. Useful for understanding the " +
-        "structure of large XML files before performing detailed queries. " +
+        "structure of large XML files before performing detailed queries. Requires `maxBytes` (default 10KB) and `maxDepth` (default 2) parameters. " +
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(XmlStructureArgsSchema) as ToolInput,
     },
@@ -462,10 +394,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Convert an XML file to JSON format and optionally save it to a new file. " +
         "Uses fast-xml-parser for efficient and reliable conversion. " +
         "Supports various options like preserving attribute information " +
-        "and formatting the output. Both input and output paths must be " +
+        "and formatting the output. Requires `maxBytes` parameter (default 10KB) for reading the input XML. Both input and output paths must be " +
         "within allowed directories. " +
-        "NOTE: This tool is always available for parsing XML, but saving the output " +
-        "to a file requires the --allow-create permission. Use xml_to_json_string for " +
+        "NOTE: Saving the output to a file requires the --allow-create or --allow-edit permission. Use xml_to_json_string for " +
         "read-only operations.",
       inputSchema: zodToJsonSchema(XmlToJsonArgsSchema) as ToolInput,
     },
@@ -474,9 +405,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       description:
         "Convert an XML file to a JSON string and return it directly. " +
         "This is useful for quickly inspecting XML content as JSON without " +
-        "creating a new file. Uses fast-xml-parser for conversion. " +
+        "creating a new file. Requires `maxBytes` parameter (default 10KB). Uses fast-xml-parser for conversion. " +
         "The input path must be within allowed directories. " +
-        "This tool is fully functional in both readonly and write modes since " +
+        "This tool is fully functional in both readonly and write modes (respecting maxBytes) since " +
         "it only reads the XML file and returns the parsed data.",
       inputSchema: zodToJsonSchema(XmlToJsonStringArgsSchema) as ToolInput,
     },
@@ -506,7 +437,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       description:
         "Query JSON data using JSONPath expressions. Provides powerful search " +
         "capabilities for selecting data within JSON structures. Supports standard " +
-        "JSONPath syntax for finding values, arrays, and nested structures. " +
+        "JSONPath syntax for finding values, arrays, and nested structures. Requires `maxBytes` parameter (default 10KB). " +
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonQueryArgsSchema) as ToolInput,
     },
@@ -516,7 +447,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Get the structure of a JSON file by analyzing its top-level keys and their types. " +
         "Returns a mapping of key names to their corresponding data types (string, number, array, etc). " +
         "For arrays, it also indicates the type of the first element if available. " +
-        "This is useful for understanding the shape of large JSON files without loading their entire content. " +
+        "This is useful for understanding the shape of large JSON files without loading their entire content. Requires `maxBytes` (default 10KB) and `maxDepth` (default 2) parameters. " +
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonStructureArgsSchema) as ToolInput,
     },
@@ -525,7 +456,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       description:
         "Filter JSON array data using flexible conditions. Supports various comparison " +
         "operators (equals, greater than, contains, etc.) and can combine multiple " +
-        "conditions with AND/OR logic. Perfect for filtering collections of objects " +
+        "conditions with AND/OR logic. Requires `maxBytes` parameter (default 10KB). Perfect for filtering collections of objects " +
         "based on their properties. The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonFilterArgsSchema) as ToolInput,
     },
@@ -533,7 +464,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       name: "json_get_value",
       description:
         "Get a specific value from a JSON file using a field path. Supports dot notation " +
-        "for accessing nested properties and array indices. Returns the value directly, " +
+        "for accessing nested properties and array indices. Requires `maxBytes` parameter (default 10KB). Returns the value directly, " +
         "properly formatted. The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonGetValueArgsSchema) as ToolInput,
     },
@@ -542,28 +473,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       description:
         "Transform JSON data using a sequence of operations. Supports operations like " +
         "mapping array elements, grouping by fields, sorting, flattening nested arrays, " +
-        "and picking/omitting fields. Operations are applied in sequence to transform " +
+        "and picking/omitting fields. Requires `maxBytes` parameter (default 10KB). Operations are applied in sequence to transform " +
         "the data structure. The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonTransformArgsSchema) as ToolInput,
     },
     {
       name: "json_sample",
       description:
-        "Sample JSON data from a JSON file. Returns a random sample of data from the JSON file. " +
+        "Sample JSON data from a JSON file. Requires `maxBytes` parameter (default 10KB). Returns a random sample of data from the JSON file. " +
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonSampleArgsSchema) as ToolInput,
     },
     {
       name: "json_validate",
       description:
-        "Validate JSON data against a JSON schema. Returns true if the JSON data is valid against the schema, " +
+        "Validate JSON data against a JSON schema. Requires `maxBytes` parameter (default 10KB) for the data file. Returns true if the JSON data is valid against the schema, " +
         "or false if it is not. The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonValidateArgsSchema) as ToolInput,
     },
     {
       name: "json_search_kv",
       description:
-        "Search for key-value pairs in a JSON file. Returns all key-value pairs that match the search pattern. " +
+        "Search for key-value pairs in JSON files within a directory. Requires `maxBytes` (default 10KB), `maxDepth` (default 2), and `maxResults` (default 10) parameters. Returns all key-value pairs that match the search pattern. " +
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonSearchKvArgsSchema) as ToolInput,
     },

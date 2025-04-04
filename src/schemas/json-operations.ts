@@ -4,8 +4,8 @@ import { z } from "zod";
 export const JsonQueryArgsSchema = z.object({
   path: z.string().describe('Path to the JSON file to query'),
   query: z.string().describe('JSONPath expression to execute against the JSON data'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
 });
 
 // Schema for filtering JSON arrays
@@ -30,16 +30,16 @@ export const JsonFilterArgsSchema = z.object({
   match: z.enum(['all', 'any'])
     .default('all')
     .describe('How to combine multiple conditions - "all" for AND, "any" for OR'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
 });
 
 // Schema for getting a specific value from a JSON file
 export const JsonGetValueArgsSchema = z.object({
   path: z.string().describe('Path to the JSON file'),
   field: z.string().describe('Path to the field to retrieve (e.g., "user.address.city" or "items[0].name")'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
 });
 
 // Schema for transforming JSON data
@@ -58,17 +58,17 @@ export const JsonTransformArgsSchema = z.object({
     order: z.enum(['asc', 'desc']).optional().describe('Sort order (if applicable)'),
     fields: z.array(z.string()).optional().describe('Fields to pick/omit (if applicable)'),
   })).min(1).describe('Array of transformation operations to apply in sequence'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
 });
 
 // Schema for getting JSON structure
 export const JsonStructureArgsSchema = z.object({
   path: z.string().describe('Path to the JSON file to analyze'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
-  depth: z.number().int().positive().optional().default(1)
-    .describe('How deep to analyze the structure (default: 1, use -1 for unlimited)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
+  maxDepth: z.number().int().positive()
+    .describe('How deep to analyze the structure. Must be a positive integer. Handler default: 2.'),
   detailedArrayTypes: z.boolean().optional().default(false)
     .describe('Whether to analyze all array elements for mixed types (default: false)')
 });
@@ -80,16 +80,16 @@ export const JsonSampleArgsSchema = z.object({
   count: z.number().int().positive().describe('Number of elements to sample'),
   method: z.enum(['first', 'random']).optional().default('first')
     .describe('Sampling method - "first" for first N elements, "random" for random sampling'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)')
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.')
 });
 
 // Schema for JSON Schema validation
 export const JsonValidateArgsSchema = z.object({
   path: z.string().describe('Path to the JSON file to validate'),
   schemaPath: z.string().describe('Path to the JSON Schema file'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from the file (default: 1MB)'),
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
   strict: z.boolean().optional().default(false)
     .describe('Whether to enable strict mode validation (additionalProperties: false)'),
   allErrors: z.boolean().optional().default(true)
@@ -105,8 +105,9 @@ export const JsonSearchKvArgsSchema = z.object({
     .describe('Whether to search recursively in subdirectories'),
   matchType: z.enum(['exact', 'contains', 'startsWith', 'endsWith']).optional().default('exact')
     .describe('How to match values - only applies if value is provided'),
-  maxBytes: z.number().optional().default(1024 * 1024)
-    .describe('Maximum bytes to read from each file (default: 1MB)'),
-  maxResults: z.number().int().positive().optional().default(100)
-    .describe('Maximum number of results to return (default: 100)')
-}); 
+  maxBytes: z.number().int().positive()
+    .describe('Maximum bytes to read from each file. Must be a positive integer. Handler default: 10KB.'),
+  maxResults: z.number().int().positive()
+    .describe('Maximum number of results to return. Must be a positive integer. Handler default: 10.'),
+  maxDepth: z.number().int().positive().describe('Maximum directory depth to search. Must be a positive integer. Handler default: 2.')
+});

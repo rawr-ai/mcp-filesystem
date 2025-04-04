@@ -33,7 +33,13 @@ export async function handleCreateDirectory(
     throw new Error('Cannot create directory: create permission not granted (requires --allow-create)');
   }
   
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validPath = await validatePath(
+    parsed.data.path,
+    allowedDirectories,
+    symlinksMap,
+    noFollowSymlinks,
+    { checkParentExists: false } // Add this option
+  );
   await fs.mkdir(validPath, { recursive: true });
   return {
     content: [{ type: "text", text: `Successfully created directory ${parsed.data.path}` }],
@@ -71,7 +77,7 @@ export async function handleDirectoryTree(
     throw new Error(`Invalid arguments for directory_tree: ${parsed.error}`);
   }
 
-  const { path: startPath, depth: maxDepth, excludePatterns } = parsed.data;
+  const { path: startPath, maxDepth, excludePatterns } = parsed.data; // maxDepth is mandatory (handler default: 2)
   const validatedStartPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
 
   async function buildTree(

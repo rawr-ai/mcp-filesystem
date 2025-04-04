@@ -13,13 +13,20 @@ export function expandHome(filepath: string): string {
   }
   return filepath;
 }
+interface ValidatePathOptions {
+  checkParentExists?: boolean;
+}
+
 
 export async function validatePath(
   requestedPath: string,
   allowedDirectories: string[],
   symlinksMap: Map<string, string>,
-  noFollowSymlinks: boolean
+  noFollowSymlinks: boolean,
+  options?: ValidatePathOptions // Add this
 ): Promise<string> {
+  // Default checkParentExists to true if not provided
+  const checkParentExists = options?.checkParentExists ?? true;
   const expandedPath = expandHome(requestedPath);
   // Resolve absolute paths directly, resolve relative paths against the first allowed directory
   const absolute = path.isAbsolute(expandedPath)
@@ -73,18 +80,31 @@ export async function validatePath(
     
     return realPath;
   } catch (error) {
-    // For new files that don't exist yet, verify parent directory
-    const parentDir = path.dirname(absolute);
-    try {
-      const realParentPath = await fs.realpath(parentDir);
-      const normalizedParent = normalizePath(realParentPath);
-      const isParentAllowed = allowedDirectories.some(dir => normalizedParent.startsWith(dir));
-      if (!isParentAllowed) {
-        throw new Error("Access denied - parent directory outside allowed directories");
+    // For new files/dirs that don't exist yet, verify parent directory *if requested*
+    if (checkParentExists) { // Add this condition
+      const parentDir = path.dirname(absolute);
+      try {
+        const realParentPath = await fs.realpath(parentDir);
+        const normalizedParent = normalizePath(realParentPath);
+        const isParentAllowed = allowedDirectories.some(dir => normalizedParent.startsWith(dir));
+        if (!isParentAllowed) {
+          throw new Error("Access denied - parent directory outside allowed directories");
+        }
+        // If parent exists and is allowed, return the original absolute path for creation
+        return absolute;
+      } catch (parentError) {
+         // If parent check fails, throw specific error
+         // Check if parent doesn't exist specifically using the error code
+         if ((parentError as NodeJS.ErrnoException)?.code === 'ENOENT') {
+            throw new Error(`Parent directory does not exist: ${parentDir}`);
+         }
+         // Rethrow other parent errors
+         throw parentError;
       }
+    } else {
+      // If checkParentExists is false, just return the absolute path
+      // The initial isAllowed check already confirmed it's within bounds
       return absolute;
-    } catch {
-      throw new Error(`Parent directory does not exist: ${parentDir}`);
     }
   }
 } 
