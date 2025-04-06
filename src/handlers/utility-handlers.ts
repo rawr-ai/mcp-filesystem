@@ -3,13 +3,14 @@ import path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
-import { searchFiles, findFilesByExtension } from '../utils/file-utils.js';
+import { searchFiles, findFilesByExtension, regexSearchContent } from '../utils/file-utils.js';
 import {
   GetPermissionsArgsSchema,
   SearchFilesArgsSchema,
   FindFilesByExtensionArgsSchema,
   XmlToJsonArgsSchema,
-  XmlToJsonStringArgsSchema
+  XmlToJsonStringArgsSchema,
+  RegexSearchContentArgsSchema // Added import
 } from '../schemas/utility-operations.js';
 
 export function handleGetPermissions(
@@ -232,4 +233,56 @@ export function handleListAllowedDirectories(
       text: `Allowed directories:\n${allowedDirectories.join('\n')}`
     }],
   };
-} 
+}
+
+export async function handleRegexSearchContent(
+  args: unknown,
+  allowedDirectories: string[],
+  symlinksMap: Map<string, string>,
+  noFollowSymlinks: boolean
+) {
+  const parsed = RegexSearchContentArgsSchema.safeParse(args);
+  if (!parsed.success) {
+    throw new Error(`Invalid arguments for regex_search_content: ${parsed.error}`);
+  }
+  const {
+    path: startPath,
+    regex,
+    filePattern,
+    maxDepth,
+    maxFileSize,
+    maxResults
+  } = parsed.data;
+
+  const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+
+  try {
+    const results = await regexSearchContent(
+      validPath,
+      regex,
+      filePattern,
+      maxDepth,
+      maxFileSize,
+      maxResults
+    );
+
+    if (results.length === 0) {
+      return { content: [{ type: "text", text: "No matches found for the given regex pattern." }] };
+    }
+
+    // Format the output
+    const formattedResults = results.map(fileResult => {
+      const matchesText = fileResult.matches
+        .map(match => `  Line ${match.lineNumber}: ${match.lineContent.trim()}`)
+        .join('\n');
+      return `File: ${fileResult.path}\n${matchesText}`;
+    }).join('\n\n');
+
+    return {
+      content: [{ type: "text", text: formattedResults }],
+    };
+  } catch (error: any) {
+    // Catch errors from regexSearchContent (e.g., invalid regex)
+    throw new Error(`Error during regex content search: ${error.message}`);
+  }
+}

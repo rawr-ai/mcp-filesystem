@@ -23,7 +23,8 @@ import {
   FindFilesByExtensionArgsSchema,
   GetPermissionsArgsSchema,
   XmlToJsonArgsSchema,
-  XmlToJsonStringArgsSchema
+  XmlToJsonStringArgsSchema, // Added comma here
+  RegexSearchContentArgsSchema
 } from './src/schemas/utility-operations.js';
 import { searchFiles, findFilesByExtension, FileInfo } from './src/utils/file-utils.js';
 import { normalizePath, expandHome, validatePath } from './src/utils/path-utils.js';
@@ -86,7 +87,8 @@ import {
   handleGetPermissions,
   handleXmlToJson,
   handleXmlToJsonString,
-  handleListAllowedDirectories
+  handleListAllowedDirectories, // Added comma here
+  handleRegexSearchContent
 } from './src/handlers/utility-handlers.js';
 
 // Command line argument parsing
@@ -498,6 +500,16 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "The path must be within allowed directories.",
       inputSchema: zodToJsonSchema(JsonSearchKvArgsSchema) as ToolInput,
     },
+    {
+      name: "regex_search_content",
+      description:
+        "Recursively search file content using a regex pattern. " +
+        "Searches through subdirectories from the starting path. " +
+        "Returns a list of files containing matches, including line numbers and matching lines. " +
+        "Requires `regex` pattern. Optional: `path`, `filePattern`, `maxDepth`, `maxFileSize`, `maxResults`. " +
+        "Only searches within allowed directories.",
+      inputSchema: zodToJsonSchema(RegexSearchContentArgsSchema) as ToolInput,
+    },
   ];
 
   // Filter tools based on permissions
@@ -507,7 +519,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
          'search_files', 'find_files_by_extension', 'get_file_info', 
          'list_allowed_directories', 'xml_to_json_string', 'get_permissions',
          'xml_query', 'xml_structure',
-         'json_query', 'json_filter', 'json_get_value', 'json_transform', 'json_structure', 'json_sample', 'json_validate', 'json_search_kv'].includes(tool.name)) {
+         'json_query', 'json_filter', 'json_get_value', 'json_transform', 'json_structure', 'json_sample', 'json_validate', 'json_search_kv', 'regex_search_content'].includes(tool.name)) { // Added regex_search_content
       return true;
     }
 
@@ -668,6 +680,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "json_search_kv": {
         return await handleJsonSearchKv(args, allowedDirectories, symlinksMap, noFollowSymlinks);
+      }
+
+      case "regex_search_content": {
+        return await handleRegexSearchContent(args, allowedDirectories, symlinksMap, noFollowSymlinks);
       }
 
       default:

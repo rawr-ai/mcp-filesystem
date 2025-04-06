@@ -58,4 +58,13 @@ export const XmlStructureArgsSchema = z.object({
     .describe('Whether to include attribute information'),
   maxBytes: z.number().int().positive()
     .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.')
-}); 
+});
+
+export const RegexSearchContentArgsSchema = z.object({
+  path: z.string().describe('Directory path to start the search from.'),
+  regex: z.string().describe('The regular expression pattern to search for within file content.'),
+  filePattern: z.string().optional().default('*').describe('Glob pattern to filter files to search within (e.g., "*.ts", "data/**.json"). Defaults to searching all files.'),
+  maxDepth: z.number().int().positive().optional().default(2).describe('Maximum directory depth to search recursively. Defaults to 2.'),
+  maxFileSize: z.number().int().positive().optional().default(10 * 1024 * 1024).describe('Maximum file size in bytes to read for searching. Defaults to 10MB.'),
+  maxResults: z.number().int().positive().optional().default(50).describe('Maximum number of files with matches to return. Defaults to 50.')
+});

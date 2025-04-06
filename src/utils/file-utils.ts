@@ -246,4 +246,93 @@ export async function applyFileEdits(
   }
 
   return formattedDiff;
-} 
+}
+
+export interface RegexSearchResult {
+  path: string;
+  matches: {
+    lineNumber: number;
+    lineContent: string;
+  }[];
+}
+
+export async function regexSearchContent(
+  rootPath: string,
+  regexPattern: string,
+  filePattern: string = '*',
+  maxDepth: number = 2,
+  maxFileSize: number = 10 * 1024 * 1024, // 10MB default
+  maxResults: number = 50
+): Promise<RegexSearchResult[]> {
+  const results: RegexSearchResult[] = [];
+  let regex: RegExp;
+
+  try {
+    regex = new RegExp(regexPattern, 'g'); // Global flag to find all matches
+  } catch (error: any) {
+    throw new Error(`Invalid regex pattern provided: ${error.message}`);
+  }
+
+  async function search(currentPath: string, currentDepth: number) {
+    if (currentDepth >= maxDepth || results.length >= maxResults) {
+      return;
+    }
+
+    let entries;
+    try {
+      entries = await fs.readdir(currentPath, { withFileTypes: true });
+    } catch (error: any) {
+      console.warn(`Skipping directory ${currentPath}: ${error.message}`);
+      return; // Skip directories we can't read
+    }
+
+    for (const entry of entries) {
+      if (results.length >= maxResults) return; // Check results limit again
+
+      const fullPath = path.join(currentPath, entry.name);
+      const relativePath = path.relative(rootPath, fullPath);
+
+      if (entry.isDirectory()) {
+        await search(fullPath, currentDepth + 1);
+      } else if (entry.isFile()) {
+        // Check if file matches the filePattern glob
+        if (!minimatch(relativePath, filePattern, { dot: true, matchBase: true })) {
+          continue;
+        }
+
+        try {
+          const stats = await fs.stat(fullPath);
+          if (stats.size > maxFileSize) {
+            console.warn(`Skipping large file ${fullPath}: size ${stats.size} > max ${maxFileSize}`);
+            continue;
+          }
+
+          const content = await fs.readFile(fullPath, 'utf-8');
+          const lines = content.split('\n');
+          const fileMatches: { lineNumber: number; lineContent: string }[] = [];
+
+          lines.forEach((line, index) => {
+            // Reset regex lastIndex before each test if using global flag
+            regex.lastIndex = 0;
+            if (regex.test(line)) {
+              fileMatches.push({ lineNumber: index + 1, lineContent: line });
+            }
+          });
+
+          if (fileMatches.length > 0) {
+            if (results.length < maxResults) {
+              results.push({ path: fullPath, matches: fileMatches });
+            }
+            if (results.length >= maxResults) return; // Stop searching this branch
+          }
+        } catch (error: any) {
+          console.warn(`Skipping file ${fullPath}: ${error.message}`);
+          // Continue searching other files even if one fails
+        }
+      }
+    }
+  }
+
+  await search(rootPath, 0);
+  return results;
+}
