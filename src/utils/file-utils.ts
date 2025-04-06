@@ -1,4 +1,6 @@
-import fs from 'fs/promises';
+import fsPromises from 'fs/promises';
+import { createReadStream, Stats } from 'fs'; // Added createReadStream and Stats
+import * as readline from 'readline'; // Added readline
 import { createTwoFilesPatch } from 'diff';
 import { minimatch } from 'minimatch';
 import path from 'path';
@@ -14,7 +16,7 @@ export interface FileInfo {
 }
 
 export async function getFileStats(filePath: string): Promise<FileInfo> {
-  const stats = await fs.stat(filePath);
+  const stats = await fsPromises.stat(filePath);
   return {
     size: stats.size,
     created: stats.birthtime,
@@ -45,7 +47,7 @@ export async function searchFiles(
     if (results.length >= maxResults) {
       return;
     }
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
+    const entries = await fsPromises.readdir(currentPath, { withFileTypes: true });
 
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
@@ -109,7 +111,7 @@ export async function findFilesByExtension(
     if (results.length >= maxResults) {
       return;
     }
-    const entries = await fs.readdir(currentPath, { withFileTypes: true });
+    const entries = await fsPromises.readdir(currentPath, { withFileTypes: true });
 
     for (const entry of entries) {
       const fullPath = path.join(currentPath, entry.name);
@@ -176,7 +178,7 @@ export async function applyFileEdits(
   dryRun = false
 ): Promise<string> {
   // Read file content and normalize line endings
-  const content = normalizeLineEndings(await fs.readFile(filePath, 'utf-8'));
+  const content = normalizeLineEndings(await fsPromises.readFile(filePath, 'utf-8'));
 
   // Apply edits sequentially
   let modifiedContent = content;
@@ -242,7 +244,7 @@ export async function applyFileEdits(
   const formattedDiff = `${'`'.repeat(numBackticks)}diff\n${diff}${'`'.repeat(numBackticks)}\n\n`;
 
   if (!dryRun) {
-    await fs.writeFile(filePath, modifiedContent, 'utf-8');
+    await fsPromises.writeFile(filePath, modifiedContent, 'utf-8');
   }
 
   return formattedDiff;
@@ -280,7 +282,7 @@ export async function regexSearchContent(
 
     let entries;
     try {
-      entries = await fs.readdir(currentPath, { withFileTypes: true });
+      entries = await fsPromises.readdir(currentPath, { withFileTypes: true });
     } catch (error: any) {
       console.warn(`Skipping directory ${currentPath}: ${error.message}`);
       return; // Skip directories we can't read
@@ -296,27 +298,54 @@ export async function regexSearchContent(
         await search(fullPath, currentDepth + 1);
       } else if (entry.isFile()) {
         // Check if file matches the filePattern glob
-        if (!minimatch(relativePath, filePattern, { dot: true, matchBase: true })) {
+        // Match file pattern against the relative path (removed matchBase: true)
+        if (!minimatch(relativePath, filePattern, { dot: true })) {
           continue;
         }
 
         try {
-          const stats = await fs.stat(fullPath);
+          const stats = await fsPromises.stat(fullPath);
           if (stats.size > maxFileSize) {
             console.warn(`Skipping large file ${fullPath}: size ${stats.size} > max ${maxFileSize}`);
             continue;
           }
 
-          const content = await fs.readFile(fullPath, 'utf-8');
-          const lines = content.split('\n');
-          const fileMatches: { lineNumber: number; lineContent: string }[] = [];
+          // Use streaming approach for large files
+          const fileStream = createReadStream(fullPath, { encoding: 'utf-8' });
+          const rl = readline.createInterface({
+            input: fileStream,
+            crlfDelay: Infinity, // Handle different line endings
+          });
 
-          lines.forEach((line, index) => {
-            // Reset regex lastIndex before each test if using global flag
-            regex.lastIndex = 0;
-            if (regex.test(line)) {
-              fileMatches.push({ lineNumber: index + 1, lineContent: line });
-            }
+          const fileMatches: { lineNumber: number; lineContent: string }[] = [];
+          let currentLineNumber = 0;
+
+          // Wrap readline processing in a promise
+          await new Promise<void>((resolve, reject) => {
+            rl.on('line', (line) => {
+              currentLineNumber++;
+              // Reset regex lastIndex before each test if using global flag
+              regex.lastIndex = 0;
+              if (regex.test(line)) {
+                fileMatches.push({ lineNumber: currentLineNumber, lineContent: line });
+              }
+            });
+
+            rl.on('close', () => {
+              resolve();
+            });
+
+            rl.on('error', (err) => {
+              // Don't reject, just warn and resolve to continue processing other files
+              console.warn(`Error reading file ${fullPath}: ${err.message}`);
+              resolve();
+            });
+
+            fileStream.on('error', (err) => {
+              // Handle stream errors (e.g., file not found during read)
+               console.warn(`Error reading file stream ${fullPath}: ${err.message}`);
+               resolve(); // Resolve to allow processing to continue
+            });
           });
 
           if (fileMatches.length > 0) {
