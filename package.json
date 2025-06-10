@@ -26,8 +26,6 @@
     "fast-xml-parser": "^5.2.5",
     "jsonata": "^2.0.6",
     "jsonpath-plus": "^10.3.0",
-    "lodash": "^4.17.21",
-    "lodash-es": "^4.17.21",
     "minimatch": "^10.0.1",
     "type-fest": "^4.41.0",
     "xmldom": "^0.6.0",
@@ -37,7 +35,6 @@
   "devDependencies": {
     "@types/diff": "^8.0.0",
     "@types/jsonpath-plus": "^5.0.5",
-    "@types/lodash": "^4.17.17",
     "@types/minimatch": "^5.1.2",
     "@types/node": "^22.15.31",
     "@types/xmldom": "^0.1.34",

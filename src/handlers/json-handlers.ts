@@ -1,6 +1,25 @@
 import fs from 'fs/promises';
 import { JSONPath } from 'jsonpath-plus';
-import _ from 'lodash';
+import {
+  isPlainObject,
+  pickBy,
+  size,
+  values,
+  filter,
+  map,
+  get as getProp,
+  isEqual,
+  some,
+  every,
+  groupBy,
+  orderBy,
+  flattenDeep,
+  pick,
+  omit,
+  isEmpty,
+  sampleSize,
+  take
+} from '../utils/data-utils.js';
 import AjvModule, { ErrorObject } from 'ajv';
 const Ajv = AjvModule.default || AjvModule;
 import path from 'path';
@@ -123,17 +142,17 @@ export async function handleJsonFilter(
     } 
     // No arrayPath provided, use automatic detection for simple cases
     else {
-      if (_.isArray(jsonData)) {
+      if (Array.isArray(jsonData)) {
         // Direct array case
         dataToFilter = jsonData;
-      } else if (_.isPlainObject(jsonData)) {
+      } else if (isPlainObject(jsonData)) {
         // Find all array properties at the top level
-        const arrayProps = _.pickBy(jsonData, _.isArray);
-        
-        if (_.size(arrayProps) === 1) {
+        const arrayProps = pickBy(jsonData, Array.isArray);
+
+        if (size(arrayProps) === 1) {
           // If exactly one array property, use it automatically
-          dataToFilter = _.values(arrayProps)[0] as any[];
-        } else if (_.size(arrayProps) > 1) {
+          dataToFilter = values(arrayProps)[0] as any[];
+        } else if (size(arrayProps) > 1) {
           // Multiple arrays found, can't automatically determine which to use
           throw new Error(
             'Multiple arrays found in the JSON data. ' +
@@ -158,23 +177,23 @@ export async function handleJsonFilter(
     }
     
     // If we still couldn't find an array to filter, throw a helpful error
-    if (!_.isArray(dataToFilter) || _.isEmpty(dataToFilter)) {
+    if (!Array.isArray(dataToFilter) || isEmpty(dataToFilter)) {
       throw new Error(
         'Could not find a valid array to filter in the JSON data. ' +
         'Please make sure the file contains an array or specify the correct arrayPath parameter.'
       );
     }
 
-    // Now filter the array using lodash predicates
-    const filtered = _.filter(dataToFilter, (item) => {
-      const results = _.map(parsed.conditions, condition => {
-        const value = _.get(item, condition.field);
+    // Now filter the array using predicates
+    const filtered = filter(dataToFilter, (item) => {
+      const results = map(parsed.conditions, condition => {
+        const value = getProp(item, condition.field);
         
         switch (condition.operator) {
           case 'eq':
-            return _.isEqual(value, condition.value);
+            return isEqual(value, condition.value);
           case 'neq':
-            return !_.isEqual(value, condition.value);
+            return !isEqual(value, condition.value);
           case 'gt':
             return value > condition.value;
           case 'gte':
@@ -184,15 +203,15 @@ export async function handleJsonFilter(
           case 'lte':
             return value <= condition.value;
           case 'contains':
-            return _.isString(value) 
-              ? _.includes(value, String(condition.value))
-              : _.isArray(value) && _.some(value, v => _.isEqual(v, condition.value));
+            return typeof value === 'string'
+              ? value.includes(String(condition.value))
+              : Array.isArray(value) && some(value, v => isEqual(v, condition.value));
           case 'startsWith':
-            return _.isString(value) && _.startsWith(value, String(condition.value));
+            return typeof value === 'string' && value.startsWith(String(condition.value));
           case 'endsWith':
-            return _.isString(value) && _.endsWith(value, String(condition.value));
+            return typeof value === 'string' && value.endsWith(String(condition.value));
           case 'exists':
-            return !_.isUndefined(value);
+            return value !== undefined;
           case 'type':
             return typeof value === condition.value;
           default:
@@ -201,8 +220,8 @@ export async function handleJsonFilter(
       });
 
       return parsed.match === 'all'
-        ? _.every(results)
-        : _.some(results);
+        ? every(results, Boolean)
+        : some(results, Boolean);
     });
 
     return {
@@ -234,7 +253,7 @@ export async function handleJsonGetValue(
   const jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
-    const value = _.get(jsonData, parsed.field);
+    const value = getProp(jsonData, parsed.field);
     if (value === undefined) {
       throw new Error(`Field "${parsed.field}" not found in JSON data`);
     }
@@ -278,7 +297,7 @@ export async function handleJsonTransform(
           if (!op.field) {
             throw new Error('Field is required for map operation');
           }
-          jsonData = jsonData.map(item => _.get(item, op.field!));
+          jsonData = jsonData.map(item => getProp(item, op.field!));
           break;
 
         case 'groupBy':
@@ -288,7 +307,7 @@ export async function handleJsonTransform(
           if (!op.field) {
             throw new Error('Field is required for groupBy operation');
           }
-          jsonData = _.groupBy(jsonData, op.field);
+          jsonData = groupBy(jsonData, op.field);
           break;
 
         case 'sort':
@@ -298,7 +317,7 @@ export async function handleJsonTransform(
           if (!op.field) {
             throw new Error('Field is required for sort operation');
           }
-          jsonData = _.orderBy(
+          jsonData = orderBy(
             jsonData,
             [op.field],
             [op.order || 'asc']
@@ -309,7 +328,7 @@ export async function handleJsonTransform(
           if (!Array.isArray(jsonData)) {
             throw new Error('Data must be an array for flatten operation');
           }
-          jsonData = _.flattenDeep(jsonData);
+          jsonData = flattenDeep(jsonData);
           break;
 
         case 'pick':
@@ -317,9 +336,9 @@ export async function handleJsonTransform(
             throw new Error('Fields array is required for pick operation');
           }
           if (Array.isArray(jsonData)) {
-            jsonData = jsonData.map(item => _.pick(item, op.fields!));
+            jsonData = jsonData.map(item => pick(item, op.fields!));
           } else {
-            jsonData = _.pick(jsonData, op.fields);
+            jsonData = pick(jsonData, op.fields);
           }
           break;
 
@@ -328,9 +347,9 @@ export async function handleJsonTransform(
             throw new Error('Fields array is required for omit operation');
           }
           if (Array.isArray(jsonData)) {
-            jsonData = jsonData.map(item => _.omit(item, op.fields!));
+            jsonData = jsonData.map(item => omit(item, op.fields!));
           } else {
-            jsonData = _.omit(jsonData, op.fields);
+            jsonData = omit(jsonData, op.fields);
           }
           break;
       }
@@ -379,7 +398,7 @@ export async function handleJsonStructure(
       if (value === undefined) return { type: 'undefined' };
 
       // Handle arrays
-      if (_.isArray(value)) {
+      if (Array.isArray(value)) {
         if (value.length === 0) return { type: 'array<empty>' as ValueType };
         
         if (detailedArrayTypes) {
@@ -400,10 +419,10 @@ export async function handleJsonStructure(
       }
 
       // Handle objects
-      if (_.isPlainObject(value)) {
+      if (isPlainObject(value)) {
         const type = 'object' as ValueType;
         // If we haven't reached depth limit and object isn't empty, analyze structure
-        if (currentDepth < effectiveMaxDepth && !_.isEmpty(value)) { // Use effectiveMaxDepth
+        if (currentDepth < effectiveMaxDepth && !isEmpty(value)) { // Use effectiveMaxDepth
           const structure: Record<string, any> = {};
           for (const [key, val] of Object.entries(value)) {
             structure[key] = analyzeType(val, currentDepth + 1);
@@ -414,18 +433,18 @@ export async function handleJsonStructure(
       }
 
       // Handle primitives
-      if (_.isString(value)) return { type: 'string' };
-      if (_.isNumber(value)) return { type: 'number' };
-      if (_.isBoolean(value)) return { type: 'boolean' };
+      if (typeof value === 'string') return { type: 'string' };
+      if (typeof value === 'number') return { type: 'number' };
+      if (typeof value === 'boolean') return { type: 'boolean' };
 
       // Fallback
       return { type: typeof value as ValueType };
     }
 
     // Analyze the root structure
-    const structure = _.isArray(jsonData)
+    const structure = Array.isArray(jsonData)
       ? { type: 'array', elements: analyzeType(jsonData, 0) }
-      : _.transform(jsonData, (result: Record<string, any>, value, key: string) => {
+      : transform(jsonData, (result: Record<string, any>, value, key: string) => {
           result[key] = analyzeType(value, 0);
         }, {} as Record<string, any>);
 
@@ -480,11 +499,9 @@ export async function handleJsonSample(
 
     let sampledData: any[];
     if (parsed.method === 'random') {
-      // Use Lodash's sampleSize for efficient random sampling
-      sampledData = _.sampleSize(targetArray, Math.min(parsed.count, targetArray.length));
+      sampledData = sampleSize(targetArray, Math.min(parsed.count, targetArray.length));
     } else {
-      // Take first N elements
-      sampledData = _.take(targetArray, parsed.count);
+      sampledData = take(targetArray, parsed.count);
     }
 
     return {
@@ -604,7 +621,7 @@ export async function handleJsonSearchKv(
       }
     }
     
-    return _.isEqual(foundValue, value);
+    return isEqual(foundValue, value);
   }
 
   /**
@@ -613,7 +630,7 @@ export async function handleJsonSearchKv(
   function searchInObject(obj: any, currentPath: string[] = []): string[] {
     const matches: string[] = [];
 
-    if (_.isPlainObject(obj)) {
+    if (isPlainObject(obj)) {
       for (const [k, v] of Object.entries(obj)) {
         const newPath = [...currentPath, k];
         
@@ -623,11 +640,11 @@ export async function handleJsonSearchKv(
         }
         
         // Recursively search in nested objects and arrays
-        if (_.isPlainObject(v) || _.isArray(v)) {
+        if (isPlainObject(v) || Array.isArray(v)) {
           matches.push(...searchInObject(v, newPath));
         }
       }
-    } else if (_.isArray(obj)) {
+    } else if (Array.isArray(obj)) {
       obj.forEach((item, index) => {
         const newPath = [...currentPath, index.toString()];
         matches.push(...searchInObject(item, newPath));
