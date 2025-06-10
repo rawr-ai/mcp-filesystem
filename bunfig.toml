@@ -1,0 +1,6 @@
+[bundle]
+entryPoints = ["index.ts"]
+outdir = "dist"
+
+[test]
+root = "test"

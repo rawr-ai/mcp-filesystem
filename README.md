@@ -1,6 +1,6 @@
 # Filesystem MCP Server
 
-Node.js server implementing Model Context Protocol (MCP) for filesystem operations with comprehensive permission controls and enhanced functionality.
+Bun-based server implementing Model Context Protocol (MCP) for filesystem operations with comprehensive permission controls and enhanced functionality.
 
 ## Features
 
@@ -25,6 +25,25 @@ Node.js server implementing Model Context Protocol (MCP) for filesystem operatio
   - Sandboxed operations
 
 **Note**: The server will only allow operations within directories specified via `args` and according to the configured permissions.
+
+## Installation
+
+1. **Install Bun** (requires Bun v1.0 or later)
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
+2. **Install dependencies**
+   ```bash
+   bun install
+   ```
+3. **Build the project**
+   ```bash
+   bun run build
+   ```
+4. **Run tests**
+   ```bash
+   bun test
+   ```
 
 ## API
 
@@ -246,7 +265,7 @@ In `.cursor/mcp.json`:
 {
   "mcpServers": {
     "my-filesystem": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/path/to/allowed/directory",
@@ -283,18 +302,17 @@ For Claude Desktop with Docker:
 }
 ```
 
-### NPX Configuration
+### Bunx Configuration
 
-For either Claude Desktop or Cursor with NPX:
+For either Claude Desktop or Cursor with Bunx:
 
 ```json
 {
   "mcpServers": {
     "filesystem": {
-      "command": "npx",
+      "command": "bunx",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
+          "@modelcontextprotocol/server-filesystem",
         "--full-access",                // For full read/write access
         "/Users/username/Desktop",
         "/path/to/other/allowed/dir"
@@ -353,17 +371,17 @@ If you need different permission levels for different directories, create multip
 
 ```json
 {
-  "mcpServers": {
-    "readonly-filesystem": {
-      "command": "node",
+    "mcpServers": {
+      "readonly-filesystem": {
+        "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/sensitive/directory",
         "--readonly"
       ]
     },
-    "writeable-filesystem": {
-      "command": "node",
+      "writeable-filesystem": {
+        "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/sandbox/directory",
@@ -378,22 +396,22 @@ If you need different permission levels for different directories, create multip
 
 1. Read-only access:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --readonly /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --readonly /path/to/dir
 ```
 
 2. Full access:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --full-access /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --full-access /path/to/dir
 ```
 
 3. Specific permissions:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --allow-create --allow-edit /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --allow-create --allow-edit /path/to/dir
 ```
 
 4. No symlink following:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks /path/to/dir
 ```
 
 ## Build
