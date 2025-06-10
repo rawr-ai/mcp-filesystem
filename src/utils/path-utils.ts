@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
+import type { ReadonlyDeep } from 'type-fest';
 
 // Normalize all paths consistently
 export function normalizePath(p: string): string {
@@ -13,17 +14,17 @@ export function expandHome(filepath: string): string {
   }
   return filepath;
 }
-interface ValidatePathOptions {
+export type ValidatePathOptions = ReadonlyDeep<{
   checkParentExists?: boolean;
-}
+}>;
 
 
 export async function validatePath(
   requestedPath: string,
-  allowedDirectories: string[],
+  allowedDirectories: ReadonlyArray<string>,
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean,
-  options?: ValidatePathOptions // Add this
+  options?: ValidatePathOptions
 ): Promise<string> {
   // Default checkParentExists to true if not provided
   const checkParentExists = options?.checkParentExists ?? true;

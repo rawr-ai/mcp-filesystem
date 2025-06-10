@@ -130,8 +130,6 @@ Test setup and teardown are crucial for creating a controlled environment within
 *   **`beforeEach`/`afterEach`:** Use sparingly only if a specific test requires a pristine state different from the `beforeAll` setup or needs to clean up uniquely created artifacts.
 
 ## 8. Execution
-
-*   Tests will be executed using the chosen framework's command-line runner:
-    *   **Vitest:** `npx vitest run test/suites/regex_search_content/` (or specific file)
-    *   **Jest:** `npx jest test/suites/regex_search_content/` (or specific file)
-*   Integration with CI/CD pipelines should execute these commands.
+*   Tests will be executed using Bun with the configured test runner:
+    *   **Vitest (via Bun):** `bun test test/suites/regex_search_content/` (or specific file)
+*   Integration with CI/CD pipelines should execute the Bun command.
