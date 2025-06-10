@@ -18,7 +18,8 @@ import {
   omit,
   isEmpty,
   sampleSize,
-  take
+  take,
+  transform
 } from '../utils/data-utils.js';
 import AjvModule, { ErrorObject } from 'ajv';
 const Ajv = AjvModule.default || AjvModule;
@@ -319,7 +320,7 @@ export async function handleJsonTransform(
           }
           jsonData = orderBy(
             jsonData,
-            [op.field],
+            op.field,
             [op.order || 'asc']
           );
           break;
@@ -444,9 +445,13 @@ export async function handleJsonStructure(
     // Analyze the root structure
     const structure = Array.isArray(jsonData)
       ? { type: 'array', elements: analyzeType(jsonData, 0) }
-      : transform(jsonData, (result: Record<string, any>, value, key: string) => {
-          result[key] = analyzeType(value, 0);
-        }, {} as Record<string, any>);
+      : transform(
+          jsonData,
+          (result: Record<string, any>, value: unknown, key: string) => {
+            result[key] = analyzeType(value, 0);
+          },
+          {} as Record<string, any>
+        );
 
     return {
       content: [{ 
