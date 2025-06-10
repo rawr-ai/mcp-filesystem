@@ -59,7 +59,6 @@ export async function handleSearchFiles(
   const parsed = parseArgs(SearchFilesArgsSchema, args, 'search_files');
   const { path: startPath, pattern, excludePatterns, maxDepth, maxResults } = parsed;
   const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  // TODO: Update searchFiles in file-utils.ts to accept and use maxDepth and maxResults
   const results = await searchFiles(validPath, pattern, excludePatterns, maxDepth, maxResults);
   return {
     content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matches found" }],
@@ -75,7 +74,6 @@ export async function handleFindFilesByExtension(
   const parsed = parseArgs(FindFilesByExtensionArgsSchema, args, 'find_files_by_extension');
   const { path: startPath, extension, excludePatterns, maxDepth, maxResults } = parsed;
   const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  // TODO: Update findFilesByExtension in file-utils.ts to accept and use maxDepth and maxResults
   const results = await findFilesByExtension(
     validPath,
     extension,
