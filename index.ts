@@ -5,28 +5,13 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
-  ToolSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import fs from "fs/promises";
 import path from "path";
-import os from 'os';
-import { z } from "zod";
-import { diffLines, createTwoFilesPatch } from 'diff';
-import { minimatch } from 'minimatch';
-import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
-import {
-  XmlQueryArgsSchema,
-  XmlStructureArgsSchema,
-  SearchFilesArgsSchema,
-  FindFilesByExtensionArgsSchema,
-  GetPermissionsArgsSchema,
-  XmlToJsonArgsSchema,
-  XmlToJsonStringArgsSchema, // Added comma here
-  RegexSearchContentArgsSchema
-} from './src/schemas/utility-operations.js';
-import { searchFiles, findFilesByExtension, FileInfo } from './src/utils/file-utils.js';
 import { normalizePath, expandHome, validatePath } from './src/utils/path-utils.js';
+import { toolSchemas } from './src/schemas/index.js';
+import type { Static } from '@sinclair/typebox';
+import { handleXmlQuery, handleXmlStructure } from './src/handlers/xml-handlers.js';
 import {
   handleJsonQuery,
   handleJsonFilter,
@@ -37,26 +22,6 @@ import {
   handleJsonValidate,
   handleJsonSearchKv
 } from './src/handlers/json-handlers.js';
-import {
-  JsonQueryArgsSchema,
-  JsonFilterArgsSchema,
-  JsonGetValueArgsSchema,
-  JsonTransformArgsSchema,
-  JsonStructureArgsSchema,
-  JsonSampleArgsSchema,
-  JsonValidateArgsSchema,
-  JsonSearchKvArgsSchema
-} from './src/schemas/json-operations.js';
-import {
-  ReadFileArgsSchema,
-  ReadMultipleFilesArgsSchema,
-  WriteFileArgsSchema,
-  EditFileArgsSchema,
-  GetFileInfoArgsSchema,
-  MoveFileArgsSchema,
-  DeleteFileArgsSchema,
-  RenameFileArgsSchema
-} from './src/schemas/file-operations.js';
 import {
   handleReadFile,
   handleReadMultipleFiles,
@@ -74,12 +39,6 @@ import {
   handleDirectoryTree,
   handleDeleteDirectory
 } from './src/handlers/directory-handlers.js';
-import {
-  CreateDirectoryArgsSchema,
-  ListDirectoryArgsSchema,
-  DirectoryTreeArgsSchema,
-  DeleteDirectoryArgsSchema
-} from './src/schemas/directory-operations.js';
 import {
   handleSearchFiles,
   handleFindFilesByExtension,
@@ -193,8 +152,6 @@ await Promise.all(args.map(async (dir) => {
 }));
 
 // Schema definitions are now imported from src/schemas/*
-const ToolInputSchema = ToolSchema.shape.inputSchema;
-type ToolInput = z.infer<typeof ToolInputSchema>;
 
 // Server setup
 const server = new Server(
@@ -221,7 +178,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Handles various text encodings and provides detailed error messages " +
         "if the file cannot be read. Use this tool when you need to examine " +
         "the contents of a single file. Requires `maxBytes` parameter. Only works within allowed directories.",
-      inputSchema: ReadFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.read_file as unknown as Static<typeof toolSchemas["read_file"]>,
     },
     {
       name: "read_multiple_files",
@@ -231,7 +188,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "or compare multiple files. Each file's content is returned with its " +
         "path as a reference. Failed reads for individual files won't stop " +
         "the entire operation. Requires `maxBytesPerFile` parameter. Only works within allowed directories.",
-      inputSchema: ReadMultipleFilesArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.read_multiple_files as unknown as Static<typeof toolSchemas["read_multiple_files"]>,
     },
     {
       name: "list_directory",
@@ -240,7 +197,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Results clearly distinguish between files and directories with [FILE] and [DIR] " +
         "prefixes. This tool is essential for understanding directory structure and " +
         "finding specific files within a directory. Only works within allowed directories.",
-      inputSchema: ListDirectoryArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.list_directory as unknown as Static<typeof toolSchemas["list_directory"]>,
     },
     {
       name: "directory_tree",
@@ -251,7 +208,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           "Files have no children array, while directories always have a children array (which may be empty). " +
           "Requires `maxDepth` parameter (default 2) to limit recursion. Use excludePatterns to filter out unwanted files/directories. " +
           "The output is formatted with 2-space indentation for readability. Only works within allowed directories.",
-      inputSchema: DirectoryTreeArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.directory_tree as unknown as Static<typeof toolSchemas["directory_tree"]>,
     },
     {
       name: "search_files",
@@ -261,7 +218,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "is case-insensitive and matches partial names. Returns full paths to all " +
         "matching items. Requires `maxDepth` (default 2) and `maxResults` (default 10) parameters. Great for finding files when you don't know their exact location. " +
         "Only searches within allowed directories.",
-      inputSchema: SearchFilesArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.search_files as unknown as Static<typeof toolSchemas["search_files"]>,
     },
     {
       name: "find_files_by_extension",
@@ -271,7 +228,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Extension matching is case-insensitive. Returns full paths to all " +
         "matching files. Requires `maxDepth` (default 2) and `maxResults` (default 10) parameters. Perfect for finding all XML, JSON, or other file types " +
         "in a directory structure. Only searches within allowed directories.",
-      inputSchema: FindFilesByExtensionArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.find_files_by_extension as unknown as Static<typeof toolSchemas["find_files_by_extension"]>,
     },
     {
       name: "get_file_info",
@@ -280,7 +237,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "information including size, creation time, last modified time, permissions, " +
         "and type. This tool is perfect for understanding file characteristics " +
         "without reading the actual content. Only works within allowed directories.",
-      inputSchema: GetFileInfoArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.get_file_info as unknown as Static<typeof toolSchemas["get_file_info"]>,
     },
     {
       name: "list_allowed_directories",
@@ -302,7 +259,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "are allowed (create, edit, move, delete) and whether the server is in read-only mode " +
         "or has full access. Use this to understand what operations are permitted before " +
         "attempting them.",
-      inputSchema: GetPermissionsArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.get_permissions as unknown as Static<typeof toolSchemas["get_permissions"]>,
     },
     
     // Write tools (filtered based on permissions)
@@ -313,7 +270,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Will fail if the file already exists. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-create permission.",
-      inputSchema: WriteFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.create_file as unknown as Static<typeof toolSchemas["create_file"]>,
     },
     {
       name: "modify_file",
@@ -324,7 +281,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Will fail if the file does not exist. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-edit permission.",
-      inputSchema: WriteFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.modify_file as unknown as Static<typeof toolSchemas["modify_file"]>,
     },
     {
       name: "edit_file",
@@ -335,7 +292,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Returns a git-style diff showing the changes made. Requires `maxBytes` parameter (default 10KB) to limit initial read size. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-edit permission.",
-      inputSchema: EditFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.edit_file as unknown as Static<typeof toolSchemas["edit_file"]>,
     },
     {
       name: "create_directory",
@@ -346,7 +303,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "COMPARE WITH move_file: create_directory creates new directories while move_file moves existing files/directories. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-create permission.",
-      inputSchema: CreateDirectoryArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.create_directory as unknown as Static<typeof toolSchemas["create_directory"]>,
     },
     {
       name: "move_file",
@@ -357,7 +314,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "If the destination path already exists, the operation will fail. " +
         "Both source and destination must be within allowed directories. " +
         "This tool requires the --allow-move permission.",
-      inputSchema: MoveFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.move_file as unknown as Static<typeof toolSchemas["move_file"]>,
     },
     {
       name: "rename_file",
@@ -367,7 +324,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Will fail if a file with the new name already exists in the directory. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-rename permission.",
-      inputSchema: RenameFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.rename_file as unknown as Static<typeof toolSchemas["rename_file"]>,
     },
     {
       name: "xml_query",
@@ -377,7 +334,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Supports standard XPath 1.0 query syntax for finding elements, attributes, " +
         "and text content. Requires `maxBytes` parameter (default 10KB). Can be used to extract specific data from large XML files " +
         "with precise queries. The path must be within allowed directories.",
-      inputSchema: XmlQueryArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.xml_query as unknown as Static<typeof toolSchemas["xml_query"]>,
     },
     {
       name: "xml_structure",
@@ -387,7 +344,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "namespaces, and hierarchical structure. Useful for understanding the " +
         "structure of large XML files before performing detailed queries. Requires `maxBytes` (default 10KB) and `maxDepth` (default 2) parameters. " +
         "The path must be within allowed directories.",
-      inputSchema: XmlStructureArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.xml_structure as unknown as Static<typeof toolSchemas["xml_structure"]>,
     },
     {
       name: "xml_to_json",
@@ -399,7 +356,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "within allowed directories. " +
         "NOTE: Saving the output to a file requires the --allow-create or --allow-edit permission. Use xml_to_json_string for " +
         "read-only operations.",
-      inputSchema: XmlToJsonArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.xml_to_json as unknown as Static<typeof toolSchemas["xml_to_json"]>,
     },
     {
       name: "xml_to_json_string",
@@ -410,7 +367,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "The input path must be within allowed directories. " +
         "This tool is fully functional in both readonly and write modes (respecting maxBytes) since " +
         "it only reads the XML file and returns the parsed data.",
-      inputSchema: XmlToJsonStringArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.xml_to_json_string as unknown as Static<typeof toolSchemas["xml_to_json_string"]>,
     },
     {
       name: "delete_file",
@@ -420,7 +377,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Will fail if the file does not exist or if the path points to a directory. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-delete permission.",
-      inputSchema: DeleteFileArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.delete_file as unknown as Static<typeof toolSchemas["delete_file"]>,
     },
     {
       name: "delete_directory",
@@ -430,7 +387,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "By default, will fail if the directory is not empty - set recursive=true to delete all contents. " +
         "Only works within allowed directories. " +
         "This tool requires the --allow-delete permission.",
-      inputSchema: DeleteDirectoryArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.delete_directory as unknown as Static<typeof toolSchemas["delete_directory"]>,
     },
     // JSON tools
     {
@@ -440,7 +397,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "capabilities for selecting data within JSON structures. Supports standard " +
         "JSONPath syntax for finding values, arrays, and nested structures. Requires `maxBytes` parameter (default 10KB). " +
         "The path must be within allowed directories.",
-      inputSchema: JsonQueryArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_query as unknown as Static<typeof toolSchemas["json_query"]>,
     },
     {
       name: "json_structure",
@@ -450,7 +407,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "For arrays, it also indicates the type of the first element if available. " +
         "This is useful for understanding the shape of large JSON files without loading their entire content. Requires `maxBytes` (default 10KB) and `maxDepth` (default 2) parameters. " +
         "The path must be within allowed directories.",
-      inputSchema: JsonStructureArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_structure as unknown as Static<typeof toolSchemas["json_structure"]>,
     },
     {
       name: "json_filter",
@@ -459,7 +416,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "operators (equals, greater than, contains, etc.) and can combine multiple " +
         "conditions with AND/OR logic. Requires `maxBytes` parameter (default 10KB). Perfect for filtering collections of objects " +
         "based on their properties. The path must be within allowed directories.",
-      inputSchema: JsonFilterArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_filter as unknown as Static<typeof toolSchemas["json_filter"]>,
     },
     {
       name: "json_get_value",
@@ -467,7 +424,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Get a specific value from a JSON file using a field path. Supports dot notation " +
         "for accessing nested properties and array indices. Requires `maxBytes` parameter (default 10KB). Returns the value directly, " +
         "properly formatted. The path must be within allowed directories.",
-      inputSchema: JsonGetValueArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_get_value as unknown as Static<typeof toolSchemas["json_get_value"]>,
     },
     {
       name: "json_transform",
@@ -476,28 +433,28 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "mapping array elements, grouping by fields, sorting, flattening nested arrays, " +
         "and picking/omitting fields. Requires `maxBytes` parameter (default 10KB). Operations are applied in sequence to transform " +
         "the data structure. The path must be within allowed directories.",
-      inputSchema: JsonTransformArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_transform as unknown as Static<typeof toolSchemas["json_transform"]>,
     },
     {
       name: "json_sample",
       description:
         "Sample JSON data from a JSON file. Requires `maxBytes` parameter (default 10KB). Returns a random sample of data from the JSON file. " +
         "The path must be within allowed directories.",
-      inputSchema: JsonSampleArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_sample as unknown as Static<typeof toolSchemas["json_sample"]>,
     },
     {
       name: "json_validate",
       description:
         "Validate JSON data against a JSON schema. Requires `maxBytes` parameter (default 10KB) for the data file. Returns true if the JSON data is valid against the schema, " +
         "or false if it is not. The path must be within allowed directories.",
-      inputSchema: JsonValidateArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_validate as unknown as Static<typeof toolSchemas["json_validate"]>,
     },
     {
       name: "json_search_kv",
       description:
         "Search for key-value pairs in JSON files within a directory. Requires `maxBytes` (default 10KB), `maxDepth` (default 2), and `maxResults` (default 10) parameters. Returns all key-value pairs that match the search pattern. " +
         "The path must be within allowed directories.",
-      inputSchema: JsonSearchKvArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.json_search_kv as unknown as Static<typeof toolSchemas["json_search_kv"]>,
     },
     {
       name: "regex_search_content",
@@ -507,7 +464,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
         "Returns a list of files containing matches, including line numbers and matching lines. " +
         "Requires `regex` pattern. Optional: `path`, `filePattern`, `maxDepth`, `maxFileSize`, `maxResults`. " +
         "Only searches within allowed directories.",
-      inputSchema: RegexSearchContentArgsSchema as unknown as ToolInput,
+      inputSchema: toolSchemas.regex_search_content as unknown as Static<typeof toolSchemas["regex_search_content"]>,
     },
   ];
 
