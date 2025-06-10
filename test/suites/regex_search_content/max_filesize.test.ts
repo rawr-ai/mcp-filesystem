@@ -37,14 +37,14 @@ describe('test-filesystem::regex_search_content - Max File Size Limiting', () =>
   });
 
   it('skips files larger than limit', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 100 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 100 } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
     expect(files).toEqual([path.join(serverRoot, `${testBasePath}small.txt`)]);
   });
 
   it('searches all when limit high', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 5000 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 5000 } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
     expect(files).toEqual(expect.arrayContaining([

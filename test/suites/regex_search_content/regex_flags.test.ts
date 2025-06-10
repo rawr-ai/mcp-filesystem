@@ -35,14 +35,14 @@ describe('test-filesystem::regex_search_content - Regex Flags', () => {
   });
 
   it('performs case-sensitive search by default', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'CaseSensitivePattern' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'CaseSensitivePattern' } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     expect(parsed[0].file).toBe(path.join(serverRoot, `${testBasePath}case.txt`));
   });
 
   it('returns an error for unsupported (?i) flag', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '(?i)casesensitivepattern' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '(?i)casesensitivepattern' } });
     expect(res.isError).toBe(true);
     expect(res.content[0].text).toMatch(/Invalid regex pattern/);
   });

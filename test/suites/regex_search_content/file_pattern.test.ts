@@ -38,14 +38,14 @@ describe('test-filesystem::regex_search_content - File Pattern Matching', () => 
   });
 
   it('limits search using *.txt glob', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.txt' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.txt' } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
     expect(files).toEqual([path.join(serverRoot, `${testBasePath}a.txt`)]);
   });
 
   it('searches recursively with **/*.txt', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '**/*.txt' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '**/*.txt' } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
     expect(files).toEqual(expect.arrayContaining([
@@ -55,7 +55,7 @@ describe('test-filesystem::regex_search_content - File Pattern Matching', () => 
   });
 
   it('returns empty when glob matches nothing', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.none' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.none' } });
     expect(res.isError).not.toBe(true);
     expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
   });

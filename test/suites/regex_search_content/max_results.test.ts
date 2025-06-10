@@ -37,14 +37,14 @@ describe('test-filesystem::regex_search_content - Max Results Limiting', () => {
   });
 
   it('limits number of files returned', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 2 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 2 } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     expect(parsed.length).toBe(2);
   });
 
   it('returns all matches when limit higher than count', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 10 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 10 } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     expect(parsed.length).toBe(5);

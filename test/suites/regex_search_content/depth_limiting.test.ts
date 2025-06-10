@@ -39,14 +39,14 @@ describe('test-filesystem::regex_search_content - Depth Limiting', () => {
   });
 
   it('searches only root when maxDepth is 1', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 1 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 1 } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     expect(parsed.map(p=>p.file)).toEqual([path.join(serverRoot, `${testBasePath}file_root.txt`)]);
   });
 
   it('searches up to depth 2', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 2 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 2 } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(p=>p.file);
     expect(files).toEqual(expect.arrayContaining([
@@ -56,7 +56,7 @@ describe('test-filesystem::regex_search_content - Depth Limiting', () => {
   });
 
   it('searches all when maxDepth large', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 5 } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'depth_pattern', filePattern: '**/*', maxDepth: 5 } });
     expect(res.isError).not.toBe(true);
     const files = parseRegexSearchOutput(res.content[0].text).map(p=>p.file);
     expect(files).toEqual(expect.arrayContaining([

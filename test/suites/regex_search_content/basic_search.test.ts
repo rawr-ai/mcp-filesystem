@@ -38,7 +38,7 @@ describe('test-filesystem::regex_search_content - Basic Search', () => {
   });
 
   it('finds a pattern in a single file', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: 'file1.txt' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: 'file1.txt' } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     expect(parsed).toHaveLength(1);
@@ -46,7 +46,7 @@ describe('test-filesystem::regex_search_content - Basic Search', () => {
   });
 
   it('returns multiple files when pattern exists in them', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: '**/*' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: '**/*' } });
     expect(res.isError).not.toBe(true);
     const parsed = parseRegexSearchOutput(res.content[0].text);
     const files = parsed.map(p => p.file);
@@ -58,7 +58,7 @@ describe('test-filesystem::regex_search_content - Basic Search', () => {
   });
 
   it('returns no matches when pattern does not exist', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'does_not_exist' } });
+    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'does_not_exist' } });
     expect(res.isError).not.toBe(true);
     expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
   });
