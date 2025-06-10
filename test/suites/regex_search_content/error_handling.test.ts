@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
+import { getTextContent } from '../../utils/regexUtils.js';
 
 const clientInfo = { name: 'regex-search-error-test-suite', version: '0.1.0' };
 const clientCapabilities: ClientCapabilities = { toolUse: { enabled: true } };
@@ -35,20 +36,20 @@ describe('test-filesystem::regex_search_content - Error Handling', () => {
   });
 
   it('returns error for invalid regex', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '[invalid' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '[invalid' } }, CallToolResultSchema);
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toMatch(/Invalid regex pattern/);
+    expect(getTextContent(res)).toMatch(/Invalid regex pattern/);
   });
 
   it('returns no matches for non-existent path', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: nonExistentPath, regex: 'x' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: nonExistentPath, regex: 'x' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
+    expect(getTextContent(res)).toBe('No matches found for the given regex pattern.');
   });
 
   it('returns no matches when path is a file', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: `${testBasePath}a_file.txt`, regex: 'x' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: `${testBasePath}a_file.txt`, regex: 'x' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
+    expect(getTextContent(res)).toBe('No matches found for the given regex pattern.');
   });
 });

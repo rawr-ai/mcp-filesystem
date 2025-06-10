@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import path from 'path';
+import { getTextContent } from '../../utils/regexUtils.js';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 
@@ -37,21 +38,21 @@ describe('test-filesystem::regex_search_content - Path Usage', () => {
   });
 
   it('works with relative path', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testRelativeBasePath, regex: 'Path pattern' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testRelativeBasePath, regex: 'Path pattern' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toMatch('file_in_root.txt');
+    expect(getTextContent(res)).toMatch('file_in_root.txt');
   });
 
   it('works with absolute path within root', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: absoluteBasePath, regex: 'Path pattern' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: absoluteBasePath, regex: 'Path pattern' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toMatch('file_in_root.txt');
+    expect(getTextContent(res)).toMatch('file_in_root.txt');
   });
 
   it('errors for path outside root', async () => {
     const outside = path.dirname(serverRoot);
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: outside, regex: 'x' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: outside, regex: 'x' } }, CallToolResultSchema);
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toMatch(/Access denied/);
+    expect(getTextContent(res)).toMatch(/Access denied/);
   });
 });

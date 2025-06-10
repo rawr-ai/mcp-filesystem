@@ -16,3 +16,16 @@ export function parseRegexSearchOutput(text: string): FileResult[] {
     return { file: path.normalize(file), matches };
   });
 }
+
+// Helper to safely extract text content from a CallToolResult
+import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import type { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types.js';
+
+export function getTextContent(result: unknown): string {
+  const parsed = CallToolResultSchema.parse(result) as CallToolResult;
+  const first = parsed.content[0];
+  if (!first || first.type !== 'text') {
+    throw new Error('Expected first content element to be text');
+  }
+  return (first as TextContent).text;
+}

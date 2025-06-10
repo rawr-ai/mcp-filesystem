@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { parseRegexSearchOutput } from '../../utils/regexUtils.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { parseRegexSearchOutput, getTextContent } from '../../utils/regexUtils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -38,16 +38,16 @@ describe('test-filesystem::regex_search_content - File Pattern Matching', () => 
   });
 
   it('limits search using *.txt glob', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.txt' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.txt' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
+    const files = parseRegexSearchOutput(getTextContent(res)).map(r => r.file);
     expect(files).toEqual([path.join(serverRoot, `${testBasePath}a.txt`)]);
   });
 
   it('searches recursively with **/*.txt', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '**/*.txt' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '**/*.txt' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
+    const files = parseRegexSearchOutput(getTextContent(res)).map(r => r.file);
     expect(files).toEqual(expect.arrayContaining([
       path.join(serverRoot, `${testBasePath}a.txt`),
       path.join(serverRoot, `${testBasePath}sub/c.txt`)
@@ -55,8 +55,8 @@ describe('test-filesystem::regex_search_content - File Pattern Matching', () => 
   });
 
   it('returns empty when glob matches nothing', async () => {
-    const res: any = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.none' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'pattern_here', filePattern: '*.none' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
+    expect(getTextContent(res)).toBe('No matches found for the given regex pattern.');
   });
 });
