@@ -1,8 +1,8 @@
 import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import { Transform } from 'stream';
-import { DOMParser } from 'xmldom';
 import * as xpath from 'xpath';
+// DOMParser is available globally in Bun
 import { validatePath } from '../utils/path-utils.js';
 import { parseArgs } from '../utils/schema-utils.js';
 import {
@@ -132,13 +132,7 @@ export async function handleXmlStructure(
       stream.pipe(transform)
         .on('finish', () => {
           try {
-            const parser = new DOMParser({
-              errorHandler: {
-                warning: () => {},
-                error: (msg: string) => console.error(`XML parsing error: ${msg}`),
-                fatalError: (msg: string) => { throw new Error(`Fatal XML parsing error: ${msg}`); }
-              }
-            });
+            const parser = new DOMParser();
             
             const doc = parser.parseFromString(xmlContent, 'text/xml');
             const structure = extractXmlStructure(
@@ -175,13 +169,7 @@ function processXmlContent(
   structureOnly = false,
   includeAttributes = true
 ): { content: Array<{ type: string; text: string }> } {
-  const parser = new DOMParser({
-    errorHandler: {
-      warning: () => {},
-      error: (msg: string) => console.error(`XML parsing error: ${msg}`),
-      fatalError: (msg: string) => { throw new Error(`Fatal XML parsing error: ${msg}`); }
-    }
-  });
+  const parser = new DOMParser();
 
   const doc = parser.parseFromString(xmlContent, 'text/xml');
 
