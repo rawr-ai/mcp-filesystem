@@ -11,8 +11,6 @@
         "fast-xml-parser": "^5.2.5",
         "jsonata": "^2.0.6",
         "jsonpath-plus": "^10.3.0",
-        "lodash": "^4.17.21",
-        "lodash-es": "^4.17.21",
         "minimatch": "^10.0.1",
         "type-fest": "^4.41.0",
         "xmldom": "^0.6.0",
@@ -21,7 +19,6 @@
       "devDependencies": {
         "@types/diff": "^8.0.0",
         "@types/jsonpath-plus": "^5.0.5",
-        "@types/lodash": "^4.17.17",
         "@types/minimatch": "^5.1.2",
         "@types/node": "^22.15.31",
         "@types/xmldom": "^0.1.34",
@@ -141,7 +138,6 @@
 
     "@types/jsonpath-plus": ["@types/jsonpath-plus@5.0.5", "", {}, "sha512-aaqqDf5LcGOtAfEntO5qKZS6ixT0MpNhUXNwbVPdLf7ET9hKsufJq+buZr7eXSnWoLRyGzVj2Yz2hbjVSK3wsA=="],
 
-    "@types/lodash": ["@types/lodash@4.17.17", "", {}, "sha512-RRVJ+J3J+WmyOTqnz3PiBLA501eKwXl2noseKOrNo/6+XEHjTAxO4xHvxQB6QuNm+s4WRbn6rSiap8+EA+ykFQ=="],
 
     "@types/minimatch": ["@types/minimatch@5.1.2", "", {}, "sha512-K0VQKziLUWkVKiRVrx4a40iPaxTUefQmjtkQofBkYRcoaaL/8rhwDWww9qWbrgicNOgnpIsMxyNIUM4+n6dUIA=="],
 
@@ -291,9 +287,6 @@
 
     "jsonpath-plus": ["jsonpath-plus@10.3.0", "", { "dependencies": { "@jsep-plugin/assignment": "^1.3.0", "@jsep-plugin/regex": "^1.0.4", "jsep": "^1.4.0" }, "bin": { "jsonpath": "bin/jsonpath-cli.js", "jsonpath-plus": "bin/jsonpath-cli.js" } }, "sha512-8TNmfeTCk2Le33A3vRRwtuworG/L5RrgMvdjhKZxvyShO+mBu2fP50OWUjRLNtvw344DdDarFh9buFAZs5ujeA=="],
 
-    "lodash": ["lodash@4.17.21", "", {}, "sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg=="],
-
-    "lodash-es": ["lodash-es@4.17.21", "", {}, "sha512-mKnC+QJ9pWVzv+C4/U3rRsHapFfHvQFoFB92e52xeyGMcX6/OlIl78je1u8vePzYZSkkogMPJ2yjxxsb89cxyw=="],
 
     "loupe": ["loupe@3.1.3", "", {}, "sha512-kkIp7XSkP78ZxJEsSxW3712C6teJVoeHHwgo9zJ380de7IYyJ2ISlxojcH2pC5OFLewESmnRi/+XCDIEEVyoug=="],
 
