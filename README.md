@@ -53,6 +53,8 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
 
 ### Tools
 
+All tool argument schemas are defined with [TypeBox](https://github.com/sinclairzx81/typebox) and registered via the `toolSchemas` map in `src/schemas`. This ensures every tool shares a consistent schema that handlers can reference.
+
 - **read_file**
   - Read complete contents of a file
   - Input: `path` (string)
@@ -228,6 +230,10 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
     - `maxBytes` (number, optional): Maximum bytes to read (default: 1MB)
   - Returns statistical information about elements, attributes, and structure
   - Useful for understanding large XML files before detailed analysis
+
+### Argument Validation
+
+The server validates all tool inputs using the `parseArgs` helper. `parseArgs` parses incoming data against the appropriate TypeBox schema and throws an error when the arguments do not match the expected structure.
 
 ## Permissions & Security
 
@@ -415,6 +421,18 @@ bunx @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks 
 ```
 
 ## Build
+
+To compile the project locally run:
+
+```bash
+bun run build
+```
+
+Run the test suite with:
+
+```bash
+bun test
+```
 
 Docker build:
 
