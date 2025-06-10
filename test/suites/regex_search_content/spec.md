@@ -12,7 +12,7 @@ This document defines the specification for creating a robust, automated test su
 
 ## 3. Directory Structure
 
-The test suite files and related artifacts will be organized within the main project repository (`/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem`) as follows:
+The test suite files and related artifacts will be organized within the main project repository (`mcp-filesystem/`) as follows:
 
 ```
 mcp-filesystem/
@@ -32,9 +32,9 @@ mcp-filesystem/
 
 **Test Data Directory (Managed by Tests via MCP):**
 
-All test files and directories manipulated *during test execution* will reside within the `test-filesystem` MCP server's designated root, specifically under a dedicated subdirectory:
+All test files and directories manipulated *during test execution* will reside within the `test-filesystem` MCP server's designated root under a dedicated subdirectory:
 
-*   `/Users/mateicanavra/Documents/.nosync/DEV/test/regex_search_content/`
+*   `test/fs_root/regex_search_content/`
 
 This ensures test isolation and utilizes the MCP server's file operations for setup and teardown.
 
@@ -112,10 +112,10 @@ This ensures test isolation and utilizes the MCP server's file operations for se
 
 ## 7. Setup & Teardown
 
-Test setup and teardown are crucial for creating a controlled environment within the `test-filesystem` MCP server's accessible directory (`/Users/mateicanavra/Documents/.nosync/DEV/test`).
+Test setup and teardown are crucial for creating a controlled environment within the `test-filesystem` MCP server's accessible directory (`test/fs_root/`).
 
 *   **Mechanism:** Use `beforeAll`, `afterAll` (and potentially `beforeEach`/`afterEach` if needed) within the test files.
-*   **Actions:** These hooks will use the `test-filesystem` MCP server's *own tools* (`create_directory`, `create_file`, `delete_directory`) to manage the test environment under `regex_search_content/`.
+*   **Actions:** These hooks will use the `test-filesystem` MCP server's *own tools* (`create_directory`, `create_file`, `delete_directory`) to manage the test environment under `regex_search_content/`. The directory `test/fs_root/regex_search_content/` is created during setup and removed after the tests complete.
 
 *   **`beforeAll` (Executed once per test file):**
     1.  **Ensure Base Directory:** Call `test-filesystem::create_directory` with `path: 'regex_search_content/'`. This is idempotent.
