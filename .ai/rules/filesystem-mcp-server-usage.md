@@ -10,7 +10,7 @@ This document provides guidance on interacting with the `mcp-filesystem` server,
 
 ## Overview
 
-The `mcp-filesystem` server is a Node.js application that exposes filesystem operations as MCP tools. It operates within a sandboxed environment, restricting actions to pre-configured directories and enforcing specific permissions.
+The `mcp-filesystem` server is a Bun application that exposes filesystem operations as MCP tools. It operates within a sandboxed environment, restricting actions to pre-configured directories and enforcing specific permissions.
 
 ## Core Capabilities (Tools)
 

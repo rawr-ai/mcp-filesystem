@@ -262,7 +262,7 @@ This document provides guidance on interacting with the `mcp-filesystem` server,
 
 ## Overview
 
-The `mcp-filesystem` server is a Node.js application that exposes filesystem operations as MCP tools. It operates within a sandboxed environment, restricting actions to pre-configured directories and enforcing specific permissions.
+The `mcp-filesystem` server is a Bun application that exposes filesystem operations as MCP tools. It operates within a sandboxed environment, restricting actions to pre-configured directories and enforcing specific permissions.
 
 ## Core Capabilities (Tools)
 
@@ -3017,7 +3017,7 @@ node_modules/
 `````markdown
 # Filesystem MCP Server
 
-Node.js server implementing Model Context Protocol (MCP) for filesystem operations with comprehensive permission controls and enhanced functionality.
+Bun-based server implementing Model Context Protocol (MCP) for filesystem operations with comprehensive permission controls and enhanced functionality.
 
 ## Features
 
@@ -3263,7 +3263,7 @@ In `.cursor/mcp.json`:
 {
   "mcpServers": {
     "my-filesystem": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/path/to/allowed/directory",
@@ -3300,17 +3300,16 @@ For Claude Desktop with Docker:
 }
 ```
 
-### NPX Configuration
+### Bunx Configuration
 
-For either Claude Desktop or Cursor with NPX:
+For either Claude Desktop or Cursor with Bunx:
 
 ```json
 {
   "mcpServers": {
     "filesystem": {
-      "command": "npx",
+      "command": "bunx",
       "args": [
-        "-y",
         "@modelcontextprotocol/server-filesystem",
         "--full-access",                // For full read/write access
         "/Users/username/Desktop",
@@ -3372,7 +3371,7 @@ If you need different permission levels for different directories, create multip
 {
   "mcpServers": {
     "readonly-filesystem": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/sensitive/directory",
@@ -3380,7 +3379,7 @@ If you need different permission levels for different directories, create multip
       ]
     },
     "writeable-filesystem": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
         "~/sandbox/directory",
@@ -3395,22 +3394,22 @@ If you need different permission levels for different directories, create multip
 
 1. Read-only access:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --readonly /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --readonly /path/to/dir
 ```
 
 2. Full access:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --full-access /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --full-access /path/to/dir
 ```
 
 3. Specific permissions:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --allow-create --allow-edit /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --allow-create --allow-edit /path/to/dir
 ```
 
 4. No symlink following:
 ```bash
-npx -y @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks /path/to/dir
+bunx @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks /path/to/dir
 ```
 
 ## Build
@@ -3435,7 +3434,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			"url": "http://localhost:8001/sse"
 		},
 		"filesystem-mcp-directory": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/",
@@ -3444,7 +3443,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-readonly": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3452,7 +3451,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-full-access": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3460,7 +3459,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-readonly-override": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3469,7 +3468,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-create-only": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3477,7 +3476,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-edit-only": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3485,7 +3484,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-move-only": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3493,7 +3492,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-rename-tool": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3501,7 +3500,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-create-and-edit": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3510,7 +3509,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-delete-only": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test",
@@ -3518,7 +3517,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
 			]
 		},
 		"mcp-test-default": {
-			"command": "node",
+			"command": "bun",
 			"args": [
 				"/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
 				"~/Desktop/mcp-test"
@@ -3547,7 +3546,7 @@ This MCP server is licensed under the MIT License. This means you are free to us
   ],
   "scripts": {
     "build": "tsc && shx chmod +x dist/*.js",
-    "prepare": "npm run build",
+    "prepare": "bun run build",
     "watch": "tsc --watch"
   },
   "dependencies": {
