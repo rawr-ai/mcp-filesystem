@@ -1,7 +1,14 @@
 import { z } from "zod";
+import { Type } from "@sinclair/typebox";
 
 // Schema for JSONPath query operations
-export const JsonQueryArgsSchema = z.object({
+export const JsonQueryArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file to query' }),
+  query: Type.String({ description: 'JSONPath expression to execute against the JSON data' }),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' })
+});
+
+export const JsonQueryArgsZod = z.object({
   path: z.string().describe('Path to the JSON file to query'),
   query: z.string().describe('JSONPath expression to execute against the JSON data'),
   maxBytes: z.number().int().positive()
@@ -9,7 +16,23 @@ export const JsonQueryArgsSchema = z.object({
 });
 
 // Schema for filtering JSON arrays
-export const JsonFilterArgsSchema = z.object({
+export const JsonFilterArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file to filter' }),
+  arrayPath: Type.Optional(Type.String({ description: 'Optional JSONPath expression to locate the target array (e.g., "$.items" or "$.data.records")' })),
+  conditions: Type.Array(Type.Object({
+    field: Type.String({ description: 'Path to the field to check (e.g., "address.city" or "tags[0]")' }),
+    operator: Type.Union([
+      Type.Literal('eq'), Type.Literal('neq'), Type.Literal('gt'), Type.Literal('gte'),
+      Type.Literal('lt'), Type.Literal('lte'), Type.Literal('contains'), Type.Literal('startsWith'),
+      Type.Literal('endsWith'), Type.Literal('exists'), Type.Literal('type')
+    ], { description: 'Comparison operator' }),
+    value: Type.Any({ description: 'Value to compare against' })
+  }), { minItems: 1, description: 'Array of filter conditions' }),
+  match: Type.Optional(Type.Union([Type.Literal('all'), Type.Literal('any')], { default: 'all', description: 'How to combine multiple conditions - "all" for AND, "any" for OR' })),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' })
+});
+
+export const JsonFilterArgsZod = z.object({
   path: z.string().describe('Path to the JSON file to filter'),
   arrayPath: z.string().optional()
     .describe('Optional JSONPath expression to locate the target array (e.g., "$.items" or "$.data.records")'),
@@ -35,7 +58,13 @@ export const JsonFilterArgsSchema = z.object({
 });
 
 // Schema for getting a specific value from a JSON file
-export const JsonGetValueArgsSchema = z.object({
+export const JsonGetValueArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file' }),
+  field: Type.String({ description: 'Path to the field to retrieve (e.g., "user.address.city" or "items[0].name")' }),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' })
+});
+
+export const JsonGetValueArgsZod = z.object({
   path: z.string().describe('Path to the JSON file'),
   field: z.string().describe('Path to the field to retrieve (e.g., "user.address.city" or "items[0].name")'),
   maxBytes: z.number().int().positive()
@@ -43,7 +72,25 @@ export const JsonGetValueArgsSchema = z.object({
 });
 
 // Schema for transforming JSON data
-export const JsonTransformArgsSchema = z.object({
+export const JsonTransformArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file to transform' }),
+  operations: Type.Array(Type.Object({
+    type: Type.Union([
+      Type.Literal('map'),
+      Type.Literal('groupBy'),
+      Type.Literal('sort'),
+      Type.Literal('flatten'),
+      Type.Literal('pick'),
+      Type.Literal('omit')
+    ], { description: 'Type of transformation operation' }),
+    field: Type.Optional(Type.String({ description: 'Field to operate on (if applicable)' })),
+    order: Type.Optional(Type.Union([Type.Literal('asc'), Type.Literal('desc')], { description: 'Sort order (if applicable)' })),
+    fields: Type.Optional(Type.Array(Type.String(), { description: 'Fields to pick/omit (if applicable)' }))
+  }), { minItems: 1, description: 'Array of transformation operations to apply in sequence' }),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' })
+});
+
+export const JsonTransformArgsZod = z.object({
   path: z.string().describe('Path to the JSON file to transform'),
   operations: z.array(z.object({
     type: z.enum([
@@ -63,7 +110,14 @@ export const JsonTransformArgsSchema = z.object({
 });
 
 // Schema for getting JSON structure
-export const JsonStructureArgsSchema = z.object({
+export const JsonStructureArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file to analyze' }),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' }),
+  maxDepth: Type.Integer({ minimum: 1, description: 'How deep to analyze the structure. Must be a positive integer. Handler default: 2.' }),
+  detailedArrayTypes: Type.Optional(Type.Boolean({ default: false, description: 'Whether to analyze all array elements for mixed types (default: false)' }))
+});
+
+export const JsonStructureArgsZod = z.object({
   path: z.string().describe('Path to the JSON file to analyze'),
   maxBytes: z.number().int().positive()
     .describe('Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'),
@@ -74,7 +128,15 @@ export const JsonStructureArgsSchema = z.object({
 });
 
 // Schema for sampling JSON array elements
-export const JsonSampleArgsSchema = z.object({
+export const JsonSampleArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file containing the array' }),
+  arrayPath: Type.String({ description: 'JSONPath expression to locate the target array (e.g., "$.items" or "$.data.records")' }),
+  count: Type.Integer({ minimum: 1, description: 'Number of elements to sample' }),
+  method: Type.Optional(Type.Union([Type.Literal('first'), Type.Literal('random')], { default: 'first', description: 'Sampling method - "first" for first N elements, "random" for random sampling' })),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' })
+});
+
+export const JsonSampleArgsZod = z.object({
   path: z.string().describe('Path to the JSON file containing the array'),
   arrayPath: z.string().describe('JSONPath expression to locate the target array (e.g., "$.items" or "$.data.records")'),
   count: z.number().int().positive().describe('Number of elements to sample'),
@@ -85,7 +147,15 @@ export const JsonSampleArgsSchema = z.object({
 });
 
 // Schema for JSON Schema validation
-export const JsonValidateArgsSchema = z.object({
+export const JsonValidateArgsSchema = Type.Object({
+  path: Type.String({ description: 'Path to the JSON file to validate' }),
+  schemaPath: Type.String({ description: 'Path to the JSON Schema file' }),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.' }),
+  strict: Type.Optional(Type.Boolean({ default: false, description: 'Whether to enable strict mode validation (additionalProperties: false)' })),
+  allErrors: Type.Optional(Type.Boolean({ default: true, description: 'Whether to collect all validation errors or stop at first error' }))
+});
+
+export const JsonValidateArgsZod = z.object({
   path: z.string().describe('Path to the JSON file to validate'),
   schemaPath: z.string().describe('Path to the JSON Schema file'),
   maxBytes: z.number().int().positive()
@@ -97,7 +167,18 @@ export const JsonValidateArgsSchema = z.object({
 });
 
 // Schema for searching JSON files by key/value pairs
-export const JsonSearchKvArgsSchema = z.object({
+export const JsonSearchKvArgsSchema = Type.Object({
+  directoryPath: Type.String({ description: 'Directory to search in' }),
+  key: Type.String({ description: 'Key to search for' }),
+  value: Type.Optional(Type.Any({ description: 'Optional value to match against the key' })),
+  recursive: Type.Optional(Type.Boolean({ default: true, description: 'Whether to search recursively in subdirectories' })),
+  matchType: Type.Optional(Type.Union([Type.Literal('exact'), Type.Literal('contains'), Type.Literal('startsWith'), Type.Literal('endsWith')], { default: 'exact', description: 'How to match values - only applies if value is provided' })),
+  maxBytes: Type.Integer({ minimum: 1, description: 'Maximum bytes to read from each file. Must be a positive integer. Handler default: 10KB.' }),
+  maxResults: Type.Integer({ minimum: 1, description: 'Maximum number of results to return. Must be a positive integer. Handler default: 10.' }),
+  maxDepth: Type.Integer({ minimum: 1, description: 'Maximum directory depth to search. Must be a positive integer. Handler default: 2.' })
+});
+
+export const JsonSearchKvArgsZod = z.object({
   directoryPath: z.string().describe('Directory to search in'),
   key: z.string().describe('Key to search for'),
   value: z.any().optional().describe('Optional value to match against the key'),

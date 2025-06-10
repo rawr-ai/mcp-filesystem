@@ -5,12 +5,12 @@ import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
 import { searchFiles, findFilesByExtension, regexSearchContent } from '../utils/file-utils.js';
 import {
-  GetPermissionsArgsSchema,
-  SearchFilesArgsSchema,
-  FindFilesByExtensionArgsSchema,
-  XmlToJsonArgsSchema,
-  XmlToJsonStringArgsSchema,
-  RegexSearchContentArgsSchema // Added import
+  GetPermissionsArgsZod,
+  SearchFilesArgsZod,
+  FindFilesByExtensionArgsZod,
+  XmlToJsonArgsZod,
+  XmlToJsonStringArgsZod,
+  RegexSearchContentArgsZod
 } from '../schemas/utility-operations.js';
 
 export function handleGetPermissions(
@@ -20,7 +20,7 @@ export function handleGetPermissions(
   noFollowSymlinks: boolean,
   allowedDirectories: string[]
 ) {
-  const parsed = GetPermissionsArgsSchema.safeParse(args);
+  const parsed = GetPermissionsArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for get_permissions: ${parsed.error}`);
   }
@@ -52,7 +52,7 @@ export async function handleSearchFiles(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = SearchFilesArgsSchema.safeParse(args);
+  const parsed = SearchFilesArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for search_files: ${parsed.error}`);
   }
@@ -71,7 +71,7 @@ export async function handleFindFilesByExtension(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = FindFilesByExtensionArgsSchema.safeParse(args);
+  const parsed = FindFilesByExtensionArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for find_files_by_extension: ${parsed.error}`);
   }
@@ -97,7 +97,7 @@ export async function handleXmlToJson(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = XmlToJsonArgsSchema.safeParse(args);
+  const parsed = XmlToJsonArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for xml_to_json: ${parsed.error}`);
   }
@@ -182,7 +182,7 @@ export async function handleXmlToJsonString(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = XmlToJsonStringArgsSchema.safeParse(args);
+  const parsed = XmlToJsonStringArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for xml_to_json_string: ${parsed.error}`);
   }
@@ -241,7 +241,7 @@ export async function handleRegexSearchContent(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = RegexSearchContentArgsSchema.safeParse(args);
+  const parsed = RegexSearchContentArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for regex_search_content: ${parsed.error}`);
   }

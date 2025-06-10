@@ -4,7 +4,7 @@ import { Transform } from 'stream';
 import { DOMParser } from 'xmldom';
 import * as xpath from 'xpath';
 import { validatePath } from '../utils/path-utils.js';
-import { XmlQueryArgsSchema, XmlStructureArgsSchema } from '../schemas/utility-operations.js';
+import { XmlQueryArgsZod, XmlStructureArgsZod } from '../schemas/utility-operations.js';
 
 // Define interfaces for type safety
 interface XmlNode {
@@ -25,7 +25,7 @@ export async function handleXmlQuery(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlQueryArgsSchema.safeParse(args);
+  const parsed = XmlQueryArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for xml_query: ${parsed.error}`);
   }
@@ -94,7 +94,7 @@ export async function handleXmlStructure(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlStructureArgsSchema.safeParse(args);
+  const parsed = XmlStructureArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for xml_structure: ${parsed.error}`);
   }

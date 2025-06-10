@@ -4,10 +4,10 @@ import { minimatch } from 'minimatch';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
 import {
-  CreateDirectoryArgsSchema,
-  ListDirectoryArgsSchema,
-  DirectoryTreeArgsSchema,
-  DeleteDirectoryArgsSchema
+  CreateDirectoryArgsZod,
+  ListDirectoryArgsZod,
+  DirectoryTreeArgsZod,
+  DeleteDirectoryArgsZod
 } from '../schemas/directory-operations.js';
 
 interface TreeEntry {
@@ -23,7 +23,7 @@ export async function handleCreateDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = CreateDirectoryArgsSchema.safeParse(args);
+  const parsed = CreateDirectoryArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for create_directory: ${parsed.error}`);
   }
@@ -52,7 +52,7 @@ export async function handleListDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = ListDirectoryArgsSchema.safeParse(args);
+  const parsed = ListDirectoryArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for list_directory: ${parsed.error}`);
   }
@@ -72,7 +72,7 @@ export async function handleDirectoryTree(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = DirectoryTreeArgsSchema.safeParse(args);
+  const parsed = DirectoryTreeArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for directory_tree: ${parsed.error}`);
   }
@@ -165,7 +165,7 @@ export async function handleDeleteDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = DeleteDirectoryArgsSchema.safeParse(args);
+  const parsed = DeleteDirectoryArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for delete_directory: ${parsed.error}`);
   }

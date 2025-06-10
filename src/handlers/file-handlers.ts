@@ -3,14 +3,14 @@ import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
 import { getFileStats, applyFileEdits } from '../utils/file-utils.js';
 import {
-  ReadFileArgsSchema,
-  ReadMultipleFilesArgsSchema,
-  WriteFileArgsSchema,
-  EditFileArgsSchema,
-  GetFileInfoArgsSchema,
-  MoveFileArgsSchema,
-  DeleteFileArgsSchema,
-  RenameFileArgsSchema
+  ReadFileArgsZod,
+  ReadMultipleFilesArgsZod,
+  WriteFileArgsZod,
+  EditFileArgsZod,
+  GetFileInfoArgsZod,
+  MoveFileArgsZod,
+  DeleteFileArgsZod,
+  RenameFileArgsZod
 } from '../schemas/file-operations.js';
 import path from 'path';
 
@@ -20,7 +20,7 @@ export async function handleReadFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = ReadFileArgsSchema.safeParse(args);
+  const parsed = ReadFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for read_file: ${parsed.error}`);
   }
@@ -46,7 +46,7 @@ export async function handleReadMultipleFiles(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = ReadMultipleFilesArgsSchema.safeParse(args);
+  const parsed = ReadMultipleFilesArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for read_multiple_files: ${parsed.error}`);
   }
@@ -84,7 +84,7 @@ export async function handleCreateFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = WriteFileArgsSchema.safeParse(args);
+  const parsed = WriteFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for create_file: ${parsed.error}`);
   }
@@ -130,7 +130,7 @@ export async function handleModifyFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = WriteFileArgsSchema.safeParse(args);
+  const parsed = WriteFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for modify_file: ${parsed.error}`);
   }
@@ -161,7 +161,7 @@ export async function handleEditFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = EditFileArgsSchema.safeParse(args);
+  const parsed = EditFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for edit_file: ${parsed.error}`);
   }
@@ -193,7 +193,7 @@ export async function handleGetFileInfo(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = GetFileInfoArgsSchema.safeParse(args);
+  const parsed = GetFileInfoArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for get_file_info: ${parsed.error}`);
   }
@@ -213,7 +213,7 @@ export async function handleMoveFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = MoveFileArgsSchema.safeParse(args);
+  const parsed = MoveFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for move_file: ${parsed.error}`);
   }
@@ -253,7 +253,7 @@ export async function handleDeleteFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = DeleteFileArgsSchema.safeParse(args);
+  const parsed = DeleteFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for delete_file: ${parsed.error}`);
   }
@@ -284,7 +284,7 @@ export async function handleRenameFile(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = RenameFileArgsSchema.safeParse(args);
+  const parsed = RenameFileArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for rename_file: ${parsed.error}`);
   }

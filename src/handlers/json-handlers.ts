@@ -6,14 +6,14 @@ const Ajv = AjvModule.default || AjvModule;
 import path from 'path';
 import { validatePath } from '../utils/path-utils.js';
 import {
-  JsonQueryArgsSchema,
-  JsonFilterArgsSchema,
-  JsonGetValueArgsSchema,
-  JsonTransformArgsSchema,
-  JsonStructureArgsSchema,
-  JsonSampleArgsSchema,
-  JsonValidateArgsSchema,
-  JsonSearchKvArgsSchema
+  JsonQueryArgsZod,
+  JsonFilterArgsZod,
+  JsonGetValueArgsZod,
+  JsonTransformArgsZod,
+  JsonStructureArgsZod,
+  JsonSampleArgsZod,
+  JsonValidateArgsZod,
+  JsonSearchKvArgsZod
 } from '../schemas/json-operations.js';
 
 /**
@@ -55,7 +55,7 @@ export async function handleJsonQuery(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonQueryArgsSchema.safeParse(args);
+  const parsed = JsonQueryArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_query: ${parsed.error}`);
   }
@@ -92,7 +92,7 @@ export async function handleJsonFilter(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonFilterArgsSchema.safeParse(args);
+  const parsed = JsonFilterArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_filter: ${parsed.error}`);
   }
@@ -225,7 +225,7 @@ export async function handleJsonGetValue(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonGetValueArgsSchema.safeParse(args);
+  const parsed = JsonGetValueArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_get_value: ${parsed.error}`);
   }
@@ -262,7 +262,7 @@ export async function handleJsonTransform(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonTransformArgsSchema.safeParse(args);
+  const parsed = JsonTransformArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_transform: ${parsed.error}`);
   }
@@ -362,7 +362,7 @@ export async function handleJsonStructure(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonStructureArgsSchema.safeParse(args);
+  const parsed = JsonStructureArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_structure: ${parsed.error}`);
   }
@@ -458,7 +458,7 @@ export async function handleJsonSample(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonSampleArgsSchema.safeParse(args);
+  const parsed = JsonSampleArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_sample: ${parsed.error}`);
   }
@@ -519,7 +519,7 @@ export async function handleJsonValidate(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonValidateArgsSchema.safeParse(args);
+  const parsed = JsonValidateArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_validate: ${parsed.error}`);
   }
@@ -591,7 +591,7 @@ export async function handleJsonSearchKv(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonSearchKvArgsSchema.safeParse(args);
+  const parsed = JsonSearchKvArgsZod.safeParse(args);
   if (!parsed.success) {
     throw new Error(`Invalid arguments for json_search_kv: ${parsed.error}`);
   }
