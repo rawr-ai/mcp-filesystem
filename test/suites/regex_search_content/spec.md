@@ -131,7 +131,7 @@ Test setup and teardown are crucial for creating a controlled environment within
 
 ## 8. Execution
 
-*   Tests will be executed using the chosen framework's command-line runner:
-    *   **Vitest:** `npx vitest run test/suites/regex_search_content/` (or specific file)
+*   Tests will be executed using Bun with the configured test runner:
+    *   **Vitest (via Bun):** `bun test test/suites/regex_search_content/` (or specific file)
     *   **Jest:** `npx jest test/suites/regex_search_content/` (or specific file)
-*   Integration with CI/CD pipelines should execute these commands.
+*   Integration with CI/CD pipelines should execute the Bun command.
