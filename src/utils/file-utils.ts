@@ -1,6 +1,7 @@
 import fsPromises from 'fs/promises';
-import { createReadStream, Stats } from 'fs'; // Added createReadStream and Stats
-import * as readline from 'readline'; // Added readline
+import { createReadStream, Stats } from 'fs';
+import * as readline from 'readline';
+import type { ReadonlyDeep } from 'type-fest';
 import { createTwoFilesPatch } from 'diff';
 import { minimatch } from 'minimatch';
 import path from 'path';
@@ -15,7 +16,9 @@ export interface FileInfo {
   permissions: string;
 }
 
-export async function getFileStats(filePath: string): Promise<FileInfo> {
+export type ImmutableFileInfo = ReadonlyDeep<FileInfo>;
+
+export async function getFileStats(filePath: string): Promise<ImmutableFileInfo> {
   const stats = await fsPromises.stat(filePath);
   return {
     size: stats.size,
@@ -34,7 +37,7 @@ export async function searchFiles(
   excludePatterns: string[] = [],
   maxDepth: number = 2, // Default depth
   maxResults: number = 10 // Default results
-): Promise<string[]> {
+): Promise<ReadonlyArray<string>> {
   const results: string[] = [];
 
   async function search(currentPath: string, currentDepth: number) {
@@ -92,7 +95,7 @@ export async function findFilesByExtension(
   excludePatterns: string[] = [],
   maxDepth: number = 2, // Default depth
   maxResults: number = 10 // Default results
-): Promise<string[]> {
+): Promise<ReadonlyArray<string>> {
   const results: string[] = [];
   
   // Normalize the extension (remove leading dot if present)
@@ -174,7 +177,7 @@ export function createUnifiedDiff(originalContent: string, newContent: string, f
 
 export async function applyFileEdits(
   filePath: string,
-  edits: Array<{oldText: string, newText: string}>,
+  edits: ReadonlyArray<ReadonlyDeep<{ oldText: string; newText: string }>>,
   dryRun = false
 ): Promise<string> {
   // Read file content and normalize line endings
@@ -250,13 +253,13 @@ export async function applyFileEdits(
   return formattedDiff;
 }
 
-export interface RegexSearchResult {
+export type RegexSearchResult = ReadonlyDeep<{
   path: string;
-  matches: {
+  matches: Array<{
     lineNumber: number;
     lineContent: string;
-  }[];
-}
+  }>;
+}>;
 
 export async function regexSearchContent(
   rootPath: string,
@@ -265,7 +268,7 @@ export async function regexSearchContent(
   maxDepth: number = 2,
   maxFileSize: number = 10 * 1024 * 1024, // 10MB default
   maxResults: number = 50
-): Promise<RegexSearchResult[]> {
+): Promise<ReadonlyArray<RegexSearchResult>> {
   const results: RegexSearchResult[] = [];
   let regex: RegExp;
 

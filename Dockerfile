@@ -1,16 +1,16 @@
-FROM node:22.12-alpine AS builder
+FROM oven/bun AS builder
 
 WORKDIR /app
 
 COPY src/filesystem /app
 COPY tsconfig.json /tsconfig.json
 
-RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=cache,target=/root/.bun bun install
 
-RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --omit-dev
+RUN --mount=type=cache,target=/root/.bun-production bun install --production
 
 
-FROM node:22-alpine AS release
+FROM oven/bun AS release
 
 WORKDIR /app
 
@@ -20,6 +20,6 @@ COPY --from=builder /app/package-lock.json /app/package-lock.json
 
 ENV NODE_ENV=production
 
-RUN npm ci --ignore-scripts --omit-dev
+RUN bun install --production
 
-ENTRYPOINT ["node", "/app/dist/index.js"]
+ENTRYPOINT ["bun", "/app/dist/index.js"]

@@ -3,6 +3,7 @@ dist/
  
 # Dependencies
 node_modules/
+node-compile-cache/
 
 # Environment files
 .env
@@ -18,3 +19,4 @@ node_modules/
 
 .vscode/
 
+node-compile-cache/

@@ -1,3 +1,7 @@
 [test]
 root = "test"
 runner = "vitest"
+
+[bundle]
+entryPoints = ["index.ts"]
+outdir = "dist"
