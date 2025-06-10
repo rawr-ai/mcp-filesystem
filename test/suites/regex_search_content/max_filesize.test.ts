@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { parseRegexSearchOutput } from '../../utils/regexUtils.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { parseRegexSearchOutput, getTextContent } from '../../utils/regexUtils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -37,16 +37,16 @@ describe('test-filesystem::regex_search_content - Max File Size Limiting', () =>
   });
 
   it('skips files larger than limit', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 100 } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 100 } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
+    const files = parseRegexSearchOutput(getTextContent(res)).map(r => r.file);
     expect(files).toEqual([path.join(serverRoot, `${testBasePath}small.txt`)]);
   });
 
   it('searches all when limit high', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 5000 } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'filesize_pattern', maxFileSize: 5000 } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const files = parseRegexSearchOutput(res.content[0].text).map(r => r.file);
+    const files = parseRegexSearchOutput(getTextContent(res)).map(r => r.file);
     expect(files).toEqual(expect.arrayContaining([
       path.join(serverRoot, `${testBasePath}small.txt`),
       path.join(serverRoot, `${testBasePath}large.txt`)

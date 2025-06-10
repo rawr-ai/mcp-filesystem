@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { parseRegexSearchOutput } from '../../utils/regexUtils.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { parseRegexSearchOutput, getTextContent } from '../../utils/regexUtils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -37,16 +37,16 @@ describe('test-filesystem::regex_search_content - Max Results Limiting', () => {
   });
 
   it('limits number of files returned', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 2 } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 2 } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const parsed = parseRegexSearchOutput(res.content[0].text);
+    const parsed = parseRegexSearchOutput(getTextContent(res));
     expect(parsed.length).toBe(2);
   });
 
   it('returns all matches when limit higher than count', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 10 } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'max_results_pattern', maxResults: 10 } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const parsed = parseRegexSearchOutput(res.content[0].text);
+    const parsed = parseRegexSearchOutput(getTextContent(res));
     expect(parsed.length).toBe(5);
   });
 });

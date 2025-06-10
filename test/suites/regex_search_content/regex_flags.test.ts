@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { parseRegexSearchOutput } from '../../utils/regexUtils.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { parseRegexSearchOutput, getTextContent } from '../../utils/regexUtils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -35,15 +35,15 @@ describe('test-filesystem::regex_search_content - Regex Flags', () => {
   });
 
   it('performs case-sensitive search by default', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'CaseSensitivePattern' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'CaseSensitivePattern' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const parsed = parseRegexSearchOutput(res.content[0].text);
+    const parsed = parseRegexSearchOutput(getTextContent(res));
     expect(parsed[0].file).toBe(path.join(serverRoot, `${testBasePath}case.txt`));
   });
 
   it('returns an error for unsupported (?i) flag', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '(?i)casesensitivepattern' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: '(?i)casesensitivepattern' } }, CallToolResultSchema);
     expect(res.isError).toBe(true);
-    expect(res.content[0].text).toMatch(/Invalid regex pattern/);
+    expect(getTextContent(res)).toMatch(/Invalid regex pattern/);
   });
 });

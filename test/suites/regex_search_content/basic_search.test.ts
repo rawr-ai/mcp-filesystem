@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { ClientCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import { parseRegexSearchOutput } from '../../utils/regexUtils.js';
+import { ClientCapabilities, CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js';
+import { parseRegexSearchOutput, getTextContent } from '../../utils/regexUtils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -38,17 +38,17 @@ describe('test-filesystem::regex_search_content - Basic Search', () => {
   });
 
   it('finds a pattern in a single file', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: 'file1.txt' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: 'file1.txt' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const parsed = parseRegexSearchOutput(res.content[0].text);
+    const parsed = parseRegexSearchOutput(getTextContent(res));
     expect(parsed).toHaveLength(1);
     expect(parsed[0].file).toBe(path.join(serverRoot, `${testBasePath}file1.txt`));
   });
 
   it('returns multiple files when pattern exists in them', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: '**/*' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'unique_pattern_123', filePattern: '**/*' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    const parsed = parseRegexSearchOutput(res.content[0].text);
+    const parsed = parseRegexSearchOutput(getTextContent(res));
     const files = parsed.map(p => p.file);
     expect(files).toEqual(expect.arrayContaining([
       path.join(serverRoot, `${testBasePath}file1.txt`),
@@ -58,8 +58,8 @@ describe('test-filesystem::regex_search_content - Basic Search', () => {
   });
 
   it('returns no matches when pattern does not exist', async () => {
-    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'does_not_exist' } });
+    const res = await client.callTool({ name: 'regex_search_content', arguments: { path: testBasePath, regex: 'does_not_exist' } }, CallToolResultSchema);
     expect(res.isError).not.toBe(true);
-    expect(res.content[0].text).toBe('No matches found for the given regex pattern.');
+    expect(getTextContent(res)).toBe('No matches found for the given regex pattern.');
   });
 });
