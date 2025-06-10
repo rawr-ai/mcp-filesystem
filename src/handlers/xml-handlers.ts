@@ -4,7 +4,13 @@ import { Transform } from 'stream';
 import { DOMParser } from 'xmldom';
 import * as xpath from 'xpath';
 import { validatePath } from '../utils/path-utils.js';
-import { XmlQueryArgsSchema, XmlStructureArgsSchema } from '../schemas/utility-operations.js';
+import { parseArgs } from '../utils/schema-utils.js';
+import {
+  XmlQueryArgsSchema,
+  XmlStructureArgsSchema,
+  type XmlQueryArgs,
+  type XmlStructureArgs
+} from '../schemas/utility-operations.js';
 
 // Define interfaces for type safety
 interface XmlNode {
@@ -25,13 +31,10 @@ export async function handleXmlQuery(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlQueryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_query: ${parsed.error}`);
-  }
+  const parsed = parseArgs(XmlQueryArgsSchema, args, 'xml_query');
 
   const validPath = await validatePath(
-    parsed.data.path,
+    parsed.path,
     allowedDirectories,
     symlinksMap,
     noFollowSymlinks
@@ -40,7 +43,7 @@ export async function handleXmlQuery(
   try {
     // Check file size before creating stream
     const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
     if (stats.size > effectiveMaxBytes) {
       throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
     }
@@ -67,9 +70,9 @@ export async function handleXmlQuery(
           try {
             const result = processXmlContent(
               xmlContent,
-              parsed.data.query,
-              parsed.data.structureOnly,
-              parsed.data.includeAttributes
+              parsed.query,
+              parsed.structureOnly,
+              parsed.includeAttributes
             );
             resolve(result);
           } catch (err) {
@@ -94,13 +97,10 @@ export async function handleXmlStructure(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlStructureArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_structure: ${parsed.error}`);
-  }
+  const parsed = parseArgs(XmlStructureArgsSchema, args, 'xml_structure');
 
   const validPath = await validatePath(
-    parsed.data.path,
+    parsed.path,
     allowedDirectories,
     symlinksMap,
     noFollowSymlinks
@@ -109,7 +109,7 @@ export async function handleXmlStructure(
   try {
     // Check file size before creating stream
     const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
     if (stats.size > effectiveMaxBytes) {
       throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
     }
@@ -143,8 +143,8 @@ export async function handleXmlStructure(
             const doc = parser.parseFromString(xmlContent, 'text/xml');
             const structure = extractXmlStructure(
               doc,
-              parsed.data.maxDepth, // Use renamed maxDepth
-              parsed.data.includeAttributes
+              parsed.maxDepth,
+              parsed.includeAttributes
             );
 
             resolve({
