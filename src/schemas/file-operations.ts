@@ -70,13 +70,3 @@ export const RenameFileArgsSchema = Type.Object({
 });
 export type RenameFileArgs = Static<typeof RenameFileArgsSchema>;
 
-// Schemas previously defined in index.ts but related to other files (kept here for reference during refactor, but should be removed from index.ts)
-// export const GetPermissionsArgsSchema = z.object({}); // Moved to utility-operations.ts
-// export const CreateDirectoryArgsSchema = z.object({ path: z.string() }); // Moved to directory-operations.ts
-// export const ListDirectoryArgsSchema = z.object({ path: z.string() }); // Moved to directory-operations.ts
-// export const DirectoryTreeArgsSchema = z.object({ path: z.string() }); // Moved to directory-operations.ts
-// export const SearchFilesArgsSchema = z.object({ path: z.string(), pattern: z.string(), excludePatterns: z.array(z.string()).optional().default([]) }); // Moved to utility-operations.ts
-// export const FindFilesByExtensionArgsSchema = z.object({ path: z.string(), extension: z.string().describe('File extension...'), excludePatterns: z.array(z.string()).optional().default([]) }); // Moved to utility-operations.ts
-// export const DeleteDirectoryArgsSchema = z.object({ path: z.string(), recursive: z.boolean().default(false).describe('Whether to recursively delete...') }); // Moved to directory-operations.ts
-// export const XmlToJsonArgsSchema = z.object({ /* ... */ }); // Moved to utility-operations.ts
-// export const XmlToJsonStringArgsSchema = z.object({ /* ... */ }); // Moved to utility-operations.ts

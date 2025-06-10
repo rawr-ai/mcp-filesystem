@@ -3,7 +3,7 @@ import type { Static, TSchema } from '@sinclair/typebox';
 
 export function parseArgs<T extends TSchema>(schema: T, args: unknown, context: string): Static<T> {
   try {
-    // Use only the Assert step to mimic Zod's strict validation
+    // Use only the Assert step to ensure strict validation
     return Value.Parse(['Assert'], schema, args);
   } catch {
     const errors = [...Value.Errors(schema, args)]
