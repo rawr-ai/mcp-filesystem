@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "filesystem-mcp-directory": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/",
@@ -10,7 +10,7 @@
       ]
     },
     "mcp-test-readonly": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -18,7 +18,7 @@
       ]
     },
     "mcp-test-full-access": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -26,7 +26,7 @@
       ]
     },
     "mcp-test-readonly-override": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -35,7 +35,7 @@
       ]
     },
     "mcp-test-create-only": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -43,7 +43,7 @@
       ]
     },
     "mcp-test-edit-only": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -51,7 +51,7 @@
       ]
     },
     "mcp-test-move-only": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -59,7 +59,7 @@
       ]
     },
     "mcp-test-rename-tool": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -67,7 +67,7 @@
       ]
     },
     "mcp-test-create-and-edit": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -76,7 +76,7 @@
       ]
     },
     "mcp-test-delete-only": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test",
@@ -84,7 +84,7 @@
       ]
     },
     "mcp-test-default": {
-      "command": "node",
+      "command": "bun",
       "args": [
         "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
         "~/Desktop/mcp-test"
