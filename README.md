@@ -419,7 +419,7 @@ bunx @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks 
 Docker build:
 
 ```bash
-docker build -t mcp/filesystem .
+docker build -t mcp/filesystem -f Dockerfile .
 ```
 
 ## License
