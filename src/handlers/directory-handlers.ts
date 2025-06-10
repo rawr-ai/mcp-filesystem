@@ -3,11 +3,16 @@ import path from 'path';
 import { minimatch } from 'minimatch';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
+import { parseArgs } from '../utils/schema-utils.js';
 import {
   CreateDirectoryArgsSchema,
   ListDirectoryArgsSchema,
   DirectoryTreeArgsSchema,
-  DeleteDirectoryArgsSchema
+  DeleteDirectoryArgsSchema,
+  type CreateDirectoryArgs,
+  type ListDirectoryArgs,
+  type DirectoryTreeArgs,
+  type DeleteDirectoryArgs
 } from '../schemas/directory-operations.js';
 
 interface TreeEntry {
@@ -23,10 +28,7 @@ export async function handleCreateDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = CreateDirectoryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for create_directory: ${parsed.error}`);
-  }
+  const parsed = parseArgs(CreateDirectoryArgsSchema, args, 'create_directory');
   
   // Enforce permission checks
   if (!permissions.create && !permissions.fullAccess) {
@@ -34,7 +36,7 @@ export async function handleCreateDirectory(
   }
   
   const validPath = await validatePath(
-    parsed.data.path,
+    parsed.path,
     allowedDirectories,
     symlinksMap,
     noFollowSymlinks,
@@ -42,7 +44,7 @@ export async function handleCreateDirectory(
   );
   await fs.mkdir(validPath, { recursive: true });
   return {
-    content: [{ type: "text", text: `Successfully created directory ${parsed.data.path}` }],
+    content: [{ type: "text", text: `Successfully created directory ${parsed.path}` }],
   };
 }
 
@@ -52,11 +54,8 @@ export async function handleListDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = ListDirectoryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for list_directory: ${parsed.error}`);
-  }
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const parsed = parseArgs(ListDirectoryArgsSchema, args, 'list_directory');
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
   const entries = await fs.readdir(validPath, { withFileTypes: true });
   const formatted = entries
     .map((entry) => `${entry.isDirectory() ? "[DIR]" : "[FILE]"} ${entry.name}`)
@@ -72,12 +71,9 @@ export async function handleDirectoryTree(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = DirectoryTreeArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for directory_tree: ${parsed.error}`);
-  }
+  const parsed = parseArgs(DirectoryTreeArgsSchema, args, 'directory_tree');
 
-  const { path: startPath, maxDepth, excludePatterns } = parsed.data; // maxDepth is mandatory (handler default: 2)
+  const { path: startPath, maxDepth, excludePatterns } = parsed; // maxDepth is mandatory (handler default: 2)
   const validatedStartPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
 
   async function buildTree(
@@ -165,30 +161,27 @@ export async function handleDeleteDirectory(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = DeleteDirectoryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for delete_directory: ${parsed.error}`);
-  }
+  const parsed = parseArgs(DeleteDirectoryArgsSchema, args, 'delete_directory');
   
   // Enforce permission checks
   if (!permissions.delete && !permissions.fullAccess) {
     throw new Error('Cannot delete directory: delete permission not granted (requires --allow-delete)');
   }
   
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
   
   try {
-    if (parsed.data.recursive) {
+    if (parsed.recursive) {
       // Safety confirmation for recursive delete
       await fs.rm(validPath, { recursive: true, force: true });
       return {
-        content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path} and all its contents` }],
+        content: [{ type: "text", text: `Successfully deleted directory ${parsed.path} and all its contents` }],
       };
     } else {
       // Non-recursive directory delete
       await fs.rmdir(validPath);
       return {
-        content: [{ type: "text", text: `Successfully deleted directory ${parsed.data.path}` }],
+        content: [{ type: "text", text: `Successfully deleted directory ${parsed.path}` }],
       };
     }
   } catch (error) {

@@ -5,6 +5,7 @@ import AjvModule, { ErrorObject } from 'ajv';
 const Ajv = AjvModule.default || AjvModule;
 import path from 'path';
 import { validatePath } from '../utils/path-utils.js';
+import { parseArgs } from '../utils/schema-utils.js';
 import {
   JsonQueryArgsSchema,
   JsonFilterArgsSchema,
@@ -13,7 +14,15 @@ import {
   JsonStructureArgsSchema,
   JsonSampleArgsSchema,
   JsonValidateArgsSchema,
-  JsonSearchKvArgsSchema
+  JsonSearchKvArgsSchema,
+  type JsonQueryArgs,
+  type JsonFilterArgs,
+  type JsonGetValueArgs,
+  type JsonTransformArgs,
+  type JsonStructureArgs,
+  type JsonSampleArgs,
+  type JsonValidateArgs,
+  type JsonSearchKvArgs
 } from '../schemas/json-operations.js';
 
 /**
@@ -55,17 +64,14 @@ export async function handleJsonQuery(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonQueryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_query: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonQueryArgsSchema, args, 'json_query');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
-    const result = JSONPath({ 
-      path: parsed.data.query,
+    const result = JSONPath({
+      path: parsed.query,
       json: jsonData,
       wrap: false // Don't wrap single results in an array
     });
@@ -92,28 +98,25 @@ export async function handleJsonFilter(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonFilterArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_filter: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonFilterArgsSchema, args, 'json_filter');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
     let dataToFilter: any[] = [];
     
     // Check if arrayPath is provided
-    if (parsed.data.arrayPath) {
+    if (parsed.arrayPath) {
       // Use JSONPath to locate the target array
       const targetArray = JSONPath({
-        path: parsed.data.arrayPath,
+        path: parsed.arrayPath,
         json: jsonData,
         wrap: false
       });
 
       if (!Array.isArray(targetArray)) {
-        throw new Error(`Path "${parsed.data.arrayPath}" did not resolve to an array`);
+        throw new Error(`Path "${parsed.arrayPath}" did not resolve to an array`);
       }
       
       dataToFilter = targetArray;
@@ -164,7 +167,7 @@ export async function handleJsonFilter(
 
     // Now filter the array using lodash predicates
     const filtered = _.filter(dataToFilter, (item) => {
-      const results = _.map(parsed.data.conditions, condition => {
+      const results = _.map(parsed.conditions, condition => {
         const value = _.get(item, condition.field);
         
         switch (condition.operator) {
@@ -197,7 +200,7 @@ export async function handleJsonFilter(
         }
       });
 
-      return parsed.data.match === 'all' 
+      return parsed.match === 'all'
         ? _.every(results)
         : _.some(results);
     });
@@ -225,18 +228,15 @@ export async function handleJsonGetValue(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonGetValueArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_get_value: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonGetValueArgsSchema, args, 'json_get_value');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
-    const value = _.get(jsonData, parsed.data.field);
+    const value = _.get(jsonData, parsed.field);
     if (value === undefined) {
-      throw new Error(`Field "${parsed.data.field}" not found in JSON data`);
+      throw new Error(`Field "${parsed.field}" not found in JSON data`);
     }
 
     return {
@@ -262,17 +262,14 @@ export async function handleJsonTransform(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonTransformArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_transform: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonTransformArgsSchema, args, 'json_transform');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  let jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  let jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
     // Apply operations in sequence
-    for (const op of parsed.data.operations) {
+    for (const op of parsed.operations) {
       switch (op.type) {
         case 'map':
           if (!Array.isArray(jsonData)) {
@@ -362,14 +359,11 @@ export async function handleJsonStructure(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonStructureArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_structure: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonStructureArgsSchema, args, 'json_structure');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
-  const { maxDepth, detailedArrayTypes = false } = parsed.data;
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const jsonData = await readJsonFile(validPath, parsed.maxBytes);
+  const { maxDepth, detailedArrayTypes = false } = parsed;
   const effectiveMaxDepth = maxDepth ?? 2; // Default depth 2
 
   try {
@@ -458,24 +452,21 @@ export async function handleJsonSample(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonSampleArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_sample: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonSampleArgsSchema, args, 'json_sample');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const jsonData = await readJsonFile(validPath, parsed.data.maxBytes);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const jsonData = await readJsonFile(validPath, parsed.maxBytes);
 
   try {
     // Use JSONPath to locate the target array
     const targetArray = JSONPath({
-      path: parsed.data.arrayPath,
+      path: parsed.arrayPath,
       json: jsonData,
       wrap: false
     });
 
     if (!Array.isArray(targetArray)) {
-      throw new Error(`Path "${parsed.data.arrayPath}" did not resolve to an array`);
+      throw new Error(`Path "${parsed.arrayPath}" did not resolve to an array`);
     }
 
     if (targetArray.length === 0) {
@@ -488,12 +479,12 @@ export async function handleJsonSample(
     }
 
     let sampledData: any[];
-    if (parsed.data.method === 'random') {
+    if (parsed.method === 'random') {
       // Use Lodash's sampleSize for efficient random sampling
-      sampledData = _.sampleSize(targetArray, Math.min(parsed.data.count, targetArray.length));
+      sampledData = _.sampleSize(targetArray, Math.min(parsed.count, targetArray.length));
     } else {
       // Take first N elements
-      sampledData = _.take(targetArray, parsed.data.count);
+      sampledData = _.take(targetArray, parsed.count);
     }
 
     return {
@@ -519,25 +510,22 @@ export async function handleJsonValidate(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonValidateArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_validate: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonValidateArgsSchema, args, 'json_validate');
 
-  const validPath = await validatePath(parsed.data.path, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const validSchemaPath = await validatePath(parsed.data.schemaPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validPath = await validatePath(parsed.path, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const validSchemaPath = await validatePath(parsed.schemaPath, allowedDirectories, symlinksMap, noFollowSymlinks);
 
   try {
     // Read both the data and schema files
     const [jsonData, schemaData] = await Promise.all([
-      readJsonFile(validPath, parsed.data.maxBytes),
+      readJsonFile(validPath, parsed.maxBytes),
       readJsonFile(validSchemaPath)
     ]);
 
     // Configure Ajv instance
     const ajv = new Ajv({
-      allErrors: parsed.data.allErrors,
-      strict: parsed.data.strict,
+      allErrors: parsed.allErrors,
+      strict: parsed.strict,
       validateSchema: true, // Validate the schema itself
       verbose: true // Include more detailed error information
     });
@@ -591,13 +579,10 @@ export async function handleJsonSearchKv(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = JsonSearchKvArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for json_search_kv: ${parsed.error}`);
-  }
+  const parsed = parseArgs(JsonSearchKvArgsSchema, args, 'json_search_kv');
 
-  const validDirPath = await validatePath(parsed.data.directoryPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  const { key, value, recursive = true, matchType = 'exact', maxBytes, maxResults = 10, maxDepth } = parsed.data;
+  const validDirPath = await validatePath(parsed.directoryPath, allowedDirectories, symlinksMap, noFollowSymlinks);
+  const { key, value, recursive = true, matchType = 'exact', maxBytes, maxResults = 10, maxDepth } = parsed;
   const effectiveMaxDepth = maxDepth ?? 2; // Default depth 2
 
   /**
