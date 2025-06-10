@@ -3,6 +3,8 @@ FROM oven/bun AS builder
 WORKDIR /app
 
 COPY src/filesystem /app
+COPY package.json /app/package.json
+COPY bun.lock /app/bun.lock
 COPY tsconfig.json /tsconfig.json
 
 RUN --mount=type=cache,target=/root/.bun bun install
@@ -16,10 +18,10 @@ WORKDIR /app
 
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/package.json /app/package.json
-COPY --from=builder /app/package-lock.json /app/package-lock.json
+COPY --from=builder /app/bun.lock /app/bun.lock
 
 ENV NODE_ENV=production
 
-RUN bun install --production
+RUN bun install --production --frozen-lockfile
 
 ENTRYPOINT ["bun", "/app/dist/index.js"]
