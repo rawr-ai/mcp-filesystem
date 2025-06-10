@@ -1,4 +1,4 @@
-import { Type, Static, TSchema } from "@sinclair/typebox";
+import { Type, Static } from "@sinclair/typebox";
 
 // Schema definitions moved from index.ts
 
