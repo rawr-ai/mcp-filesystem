@@ -33,8 +33,7 @@
     "xmldom": "^0.6.0",
     "xpath": "^0.0.34",
     "@sinclair/typebox": "^0.34.33",
-    "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.23.5"
+    "type-fest": "^4.0.2"
   },
   "devDependencies": {
     "@types/diff": "^5.0.9",
