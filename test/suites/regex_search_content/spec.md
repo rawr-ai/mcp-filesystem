@@ -6,9 +6,9 @@ This document defines the specification for creating a robust, automated test su
 
 ## 2. Testing Framework
 
-**Recommendation:** **Vitest**
+**Recommendation:** **Bun's built-in test runner**
 
-*   **Rationale:** Vitest offers a modern, fast testing experience with a Jest-compatible API, making it a suitable choice for TypeScript projects. Its speed and features like built-in ESM support and HMR (Hot Module Replacement) for development are advantageous. If the project already uses Jest heavily, sticking with Jest is also acceptable.
+*   **Rationale:** Bun's test runner is built-in, provides a Jest-compatible API, and runs quickly with native ESM support.
 
 ## 3. Directory Structure
 
@@ -47,7 +47,7 @@ This ensures test isolation and utilizes the MCP server's file operations for se
     *   `max_results.test.ts`
     *   `error_handling.test.ts`
     *   `edge_cases.test.ts`
-*   **Structure:** Utilize standard Vitest/Jest structure:
+*   **Structure:** Utilize standard structure using Bun's test API (similar to Jest):
     *   Use `describe()` blocks to group tests related to a specific feature or aspect (e.g., `describe('maxDepth parameter', () => { ... })`).
     *   Use `it()` or `test()` for individual test cases with descriptive names (e.g., `it('should return matches only from files matching the filePattern')`).
     *   Employ `beforeAll`, `afterAll`, `beforeEach`, `afterEach` for setup and teardown logic as described in Section 7.
@@ -131,5 +131,5 @@ Test setup and teardown are crucial for creating a controlled environment within
 
 ## 8. Execution
 *   Tests will be executed using Bun with the configured test runner:
-    *   **Vitest (via Bun):** `bun test test/suites/regex_search_content/` (or specific file)
+    *   **Bun test:** `bun test test/suites/regex_search_content/` (or specific file)
 *   Integration with CI/CD pipelines should execute the Bun command.
