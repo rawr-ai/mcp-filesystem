@@ -11,6 +11,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 0.5.0
         version: 0.5.0
+      '@sinclair/typebox':
+        specifier: ^0.34.33
+        version: 0.34.33
       ajv:
         specifier: ^8.17.1
         version: 8.17.1
@@ -356,6 +359,9 @@ packages:
     resolution: {integrity: sha512-yAkUOkIKZlK5dl7u6dg897doBgLXmUHhIINM2c+sND3DZwnrdQkkSiDh7N75Ll4mM4dxSkYfXqU9fW3lLkMFug==}
     cpu: [x64]
     os: [win32]
+
+  '@sinclair/typebox@0.34.33':
+    resolution: {integrity: sha512-5HAV9exOMcXRUxo+9iYB5n09XxzCXnfy4VTNW4xnDv+FgjzAGY989C28BIdljKqmF+ZltUwujE3aossvcVtq6g==}
 
   '@types/diff@5.2.3':
     resolution: {integrity: sha512-K0Oqlrq3kQMaO2RhfrNQX5trmt+XLyom88zS0u84nnIcLvFnRUMRRHmrGny5GSM+kNO9IZLARsdQHDzkhAgmrQ==}
@@ -1078,6 +1084,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.39.0':
     optional: true
+
+  '@sinclair/typebox@0.34.33': {}
 
   '@types/diff@5.2.3': {}
 
