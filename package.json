@@ -21,15 +21,16 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.12.1",
+    "@sinclair/typebox": "^0.34.33",
     "ajv": "^8.17.1",
     "diff": "^8.0.2",
     "fast-xml-parser": "^5.2.5",
+    "fastmcp": "3.4.0",
     "jsonata": "^2.0.6",
     "jsonpath-plus": "^10.3.0",
     "minimatch": "^10.0.1",
     "type-fest": "^4.41.0",
-    "xpath": "^0.0.34",
-    "@sinclair/typebox": "^0.34.33"
+    "xpath": "^0.0.34"
   },
   "devDependencies": {
     "@types/diff": "^8.0.0",
