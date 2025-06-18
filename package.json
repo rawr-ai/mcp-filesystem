@@ -33,6 +33,7 @@
     "xpath": "^0.0.34"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/diff": "^8.0.0",
     "@types/jsonpath-plus": "^5.0.5",
     "@types/minimatch": "^5.1.2",
