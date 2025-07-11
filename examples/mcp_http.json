@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "filesystem-http": {
+      "command": "bun",
+      "args": ["dist/index.js", "~/allowed/path", "--http", "--port", "8080"]
+    }
+  }
+}
