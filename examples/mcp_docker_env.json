@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "docker",
+      "args": ["run", "--rm", "-v", "${ALLOWED_PATH}:/data", "mcp/filesystem", "/data"]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "node",
+      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "${ALLOWED_PATH}"]
+    }
+  }
+}

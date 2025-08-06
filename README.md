@@ -2,6 +2,8 @@
 
 Bun-based server implementing Model Context Protocol (MCP) for filesystem operations with comprehensive permission controls and enhanced functionality.
 
+Development uses [Bun](https://bun.sh/) and the server can run directly from TypeScript with `bun`, but most MCP clients execute Node-compatible JavaScript. Use `node dist/index.js` in configs unless you're intentionally running the TypeScript entry with Bun.
+
 ## Features
 
 - Granular permission controls (read-only, full access, or specific operation permissions)
@@ -118,7 +120,7 @@ If you plan to use a hosted MCP server service.
 ```json
 {
   "mcpServers": {
-    "filesystem-glama": {
+    "filesystem": {
       "url": "https://glama.ai/rawr-ai/mcp-filesystem"
     }
   }
@@ -345,12 +347,12 @@ Add appropriate configuration to either `claude_desktop_config.json` (for Claude
 
 ### Cursor Configuration
 
-Example (`examples/mcp_cursor.json`):
+`examples/mcp_cursor_home.json`:
 
 ```json
 {
   "mcpServers": {
-    "filesystem-cursor-home": {
+    "filesystem": {
       "command": "node",
       "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "$HOME/allowed/path"]
     }
@@ -358,14 +360,27 @@ Example (`examples/mcp_cursor.json`):
 }
 ```
 
-### Roo Configuration
-
-Example (`examples/mcp_roo.json`):
+`examples/mcp_cursor_env.json`:
 
 ```json
 {
   "mcpServers": {
-    "filesystem-roo-home": {
+    "filesystem": {
+      "command": "node",
+      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "${ALLOWED_PATH}"]
+    }
+  }
+}
+```
+
+### Roo Configuration
+
+`examples/mcp_roo_home.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
       "command": "node",
       "args": ["dist/index.js", "$HOME/allowed/path"]
     }
@@ -373,27 +388,44 @@ Example (`examples/mcp_roo.json`):
 }
 ```
 
+`examples/mcp_roo_env.json`:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "node",
+      "args": ["dist/index.js", "${ALLOWED_PATH}"]
+    }
+  }
+}
+```
+
 ### Docker Configuration
 
-For Claude Desktop with Docker:
+**Mount a host directory** (`examples/mcp_docker_home.json` / `examples/mcp_docker_env.json`):
 
 ```json
 {
   "mcpServers": {
     "filesystem": {
       "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "--mount", "type=bind,src=$HOME/Desktop,dst=/projects/Desktop",
-        "--mount", "type=bind,src=/path/to/other/allowed/dir,dst=/projects/other/allowed/dir,ro",
-        "--mount", "type=bind,src=/path/to/file.txt,dst=/projects/path/to/file.txt",
-        "mcp/filesystem",
-        "--readonly",                    // For read-only access
-        "--no-follow-symlinks",         // Optional: prevent symlink following
-        "/projects"
-      ]
+      "args": ["run", "--rm", "-v", "$HOME/allowed:/data", "mcp/filesystem", "/data"]
+    }
+  }
+}
+```
+
+Replace `$HOME/allowed` with `${ALLOWED_PATH}` for an environment-variable path.
+
+**Use a path inside the container** (`examples/mcp_docker_container.json`):
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "docker",
+      "args": ["run", "--rm", "mcp/filesystem", "/data"]
     }
   }
 }
@@ -409,8 +441,8 @@ For either Claude Desktop or Cursor with Bunx:
     "filesystem": {
       "command": "bunx",
       "args": [
-          "@modelcontextprotocol/server-filesystem",
-        "--full-access",                // For full read/write access
+        "@modelcontextprotocol/server-filesystem",
+        "--full-access",
         "$HOME/Desktop",
         "/path/to/other/allowed/dir"
       ]

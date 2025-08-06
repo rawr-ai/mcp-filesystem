@@ -19,4 +19,6 @@ node-compile-cache/
 
 # MCP client configs
 .cursor/
+!.cursor/rules/
+!.cursor/rules/**
 .roo/
