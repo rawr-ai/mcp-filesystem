@@ -45,34 +45,85 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
    bun test
    ```
 
-## Running the server
+## Configuration options
 
-This repository uses Bun for development, but the compiled JavaScript can be run with **Node**, which is the default runtime for most MCP clients.
+Paths may include environment variables like `$HOME`, `${CUSTOM}`, or `%USERPROFILE%` to reference user-specific locations. Choose one of the following ways to run the server:
 
-- **Node (default)**
-  ```json
-  {
-    "command": "node",
-    "args": ["/path/to/mcp-filesystem/dist/index.js", "$HOME/allowed-directory"]
+### Local (Node/Bun)
+If you have the repository cloned locally.
+
+```json
+{
+  "command": "node",
+  "args": ["/path/to/mcp-filesystem/dist/index.js", "$HOME/allowed-directory"]
+}
+```
+
+Using Bun without a build step:
+
+```json
+{
+  "command": "bun",
+  "args": ["/path/to/mcp-filesystem/index.ts", "$HOME/allowed-directory"]
+}
+```
+
+### Git hosted (bunx/npx)
+If you want to run directly from the public git repo without cloning.
+
+```json
+{
+  "command": "bunx",
+  "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
+}
+```
+
+```json
+{
+  "command": "npx",
+  "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
+}
+```
+
+### NPM package (coming soon)
+If you prefer using an npm package once published.
+
+```json
+{
+  "command": "bunx",
+  "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
+}
+```
+
+```json
+{
+  "command": "npx",
+  "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
+}
+```
+
+### Docker
+If you need an isolated container environment.
+
+```json
+{
+  "command": "docker",
+  "args": ["run", "--rm", "-v", "$HOME/allowed-directory:/data", "rawr-ai/mcp-filesystem", "/data"]
+}
+```
+
+### Glama.ai / others (coming soon)
+If you plan to use a hosted MCP server service.
+
+```json
+{
+  "mcpServers": {
+    "filesystem-glama": {
+      "url": "https://glama.ai/rawr-ai/mcp-filesystem"
+    }
   }
-  ```
-
-- **Bun / Bunx (no build step)**
-  ```json
-  {
-    "command": "bun",
-    "args": ["/path/to/mcp-filesystem/index.ts", "$HOME/allowed-directory"]
-  }
-  ```
-  or
-  ```json
-  {
-    "command": "bunx",
-    "args": ["@modelcontextprotocol/server-filesystem", "$HOME/allowed-directory"]
-  }
-  ```
-
-Paths may include environment variables like `$HOME` or `%USERPROFILE%` to reference user-specific locations.
+}
+```
 
 ## API
 

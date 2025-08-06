@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "filesystem-glama": {
+      "url": "https://glama.ai/rawr-ai/mcp-filesystem"
+    }
+  }
+}
