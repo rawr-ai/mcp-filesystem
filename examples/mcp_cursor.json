@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "filesystem-cursor-home": {
+      "command": "node",
+      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "$HOME/allowed/path"]
+    },
+    "filesystem-cursor-env": {
+      "command": "node",
+      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "${ALLOWED_PATH}"]
+    }
+  }
+}

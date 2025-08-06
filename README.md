@@ -69,7 +69,7 @@ Using Bun without a build step:
 ```
 
 ### Git hosted (bunx/npx)
-If you want to run directly from the public git repo without cloning.
+If you want to run directly from the public git repo without cloning. These commands execute the compiled `dist/index.js` from the repository.
 
 ```json
 {
@@ -108,7 +108,7 @@ If you need an isolated container environment.
 ```json
 {
   "command": "docker",
-  "args": ["run", "--rm", "-v", "$HOME/allowed-directory:/data", "rawr-ai/mcp-filesystem", "/data"]
+  "args": ["run", "--rm", "-v", "$HOME/allowed-directory:/data", "mcp/filesystem", "/data"]
 }
 ```
 
@@ -341,22 +341,33 @@ The server implements a comprehensive security model with granular permission co
 
 ## Usage with Claude Desktop and Cursor
 
-Add appropriate configuration to either `claude_desktop_config.json` (for Claude Desktop) or `.cursor/mcp.json` (for Cursor):
+Add appropriate configuration to either `claude_desktop_config.json` (for Claude Desktop) or your local `.cursor/mcp.json` (for Cursor). Sample files are provided in the `examples` directory.
 
 ### Cursor Configuration
 
-In `.cursor/mcp.json`:
+Example (`examples/mcp_cursor.json`):
 
 ```json
 {
   "mcpServers": {
-    "my-filesystem": {
+    "filesystem-cursor-home": {
       "command": "node",
-      "args": [
-        "/path/to/mcp-filesystem/dist/index.js",
-        "$HOME/path/to/allowed/directory",
-        "--full-access"
-      ]
+      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "$HOME/allowed/path"]
+    }
+  }
+}
+```
+
+### Roo Configuration
+
+Example (`examples/mcp_roo.json`):
+
+```json
+{
+  "mcpServers": {
+    "filesystem-roo-home": {
+      "command": "node",
+      "args": ["dist/index.js", "$HOME/allowed/path"]
     }
   }
 }

@@ -1,10 +1,10 @@
 {
   "mcpServers": {
-    "filesystem-stdio-home": {
+    "filesystem-roo-home": {
       "command": "node",
       "args": ["dist/index.js", "$HOME/allowed/path"]
     },
-    "filesystem-stdio-env": {
+    "filesystem-roo-env": {
       "command": "node",
       "args": ["dist/index.js", "${ALLOWED_PATH}"]
     }
