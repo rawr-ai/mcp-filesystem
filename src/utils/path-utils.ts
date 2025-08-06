@@ -9,10 +9,19 @@ export function normalizePath(p: string): string {
 }
 
 export function expandHome(filepath: string): string {
-  if (filepath.startsWith('~/') || filepath === '~') {
-    return path.join(os.homedir(), filepath.slice(1));
+  // Expand $VAR and %VAR% environment variables
+  let expanded = filepath.replace(/\$([A-Za-z_][A-Za-z0-9_]*)|%([A-Za-z_][A-Za-z0-9_]*)%/g, (match, unixVar, winVar) => {
+    const envVar = unixVar || winVar;
+    const value = process.env[envVar];
+    return value !== undefined ? value : match;
+  });
+
+  // Expand ~ to home directory
+  if (expanded.startsWith('~/') || expanded === '~') {
+    expanded = path.join(os.homedir(), expanded.slice(1));
   }
-  return filepath;
+
+  return expanded;
 }
 export type ValidatePathOptions = ReadonlyDeep<{
   checkParentExists?: boolean;

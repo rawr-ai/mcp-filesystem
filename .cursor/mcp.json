@@ -1,10 +1,10 @@
 {
   "mcpServers": {
     "filesystem-mcp-directory": {
-      "command": "bun",
+      "command": "node",
       "args": [
-        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/dist/index.js",
-        "/Users/mateicanavra/Documents/.nosync/DEV/mcp-servers/mcp-filesystem/",
+        "$HOME/mcp-servers/mcp-filesystem/dist/index.js",
+        "$HOME/mcp-servers/mcp-filesystem/",
         "--no-follow-symlinks",
         "--readonly"
       ]

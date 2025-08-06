@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "filesystem-stdio": {
-      "command": "bun",
-      "args": ["dist/index.js", "~/allowed/path"]
+      "command": "node",
+      "args": ["dist/index.js", "$HOME/allowed/path"]
     }
   }
 }

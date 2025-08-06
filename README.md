@@ -36,7 +36,7 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
    ```bash
    bun install
    ```
-3. **Build the project**
+3. **Build the project** (required for Node runtimes)
    ```bash
    bun run build
    ```
@@ -44,6 +44,35 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
    ```bash
    bun test
    ```
+
+## Running the server
+
+This repository uses Bun for development, but the compiled JavaScript can be run with **Node**, which is the default runtime for most MCP clients.
+
+- **Node (default)**
+  ```json
+  {
+    "command": "node",
+    "args": ["/path/to/mcp-filesystem/dist/index.js", "$HOME/allowed-directory"]
+  }
+  ```
+
+- **Bun / Bunx (no build step)**
+  ```json
+  {
+    "command": "bun",
+    "args": ["/path/to/mcp-filesystem/index.ts", "$HOME/allowed-directory"]
+  }
+  ```
+  or
+  ```json
+  {
+    "command": "bunx",
+    "args": ["@modelcontextprotocol/server-filesystem", "$HOME/allowed-directory"]
+  }
+  ```
+
+Paths may include environment variables like `$HOME` or `%USERPROFILE%` to reference user-specific locations.
 
 ## API
 
@@ -271,10 +300,10 @@ In `.cursor/mcp.json`:
 {
   "mcpServers": {
     "my-filesystem": {
-      "command": "bun",
+      "command": "node",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
-        "~/path/to/allowed/directory",
+        "$HOME/path/to/allowed/directory",
         "--full-access"
       ]
     }
@@ -295,7 +324,7 @@ For Claude Desktop with Docker:
         "run",
         "-i",
         "--rm",
-        "--mount", "type=bind,src=/Users/username/Desktop,dst=/projects/Desktop",
+        "--mount", "type=bind,src=$HOME/Desktop,dst=/projects/Desktop",
         "--mount", "type=bind,src=/path/to/other/allowed/dir,dst=/projects/other/allowed/dir,ro",
         "--mount", "type=bind,src=/path/to/file.txt,dst=/projects/path/to/file.txt",
         "mcp/filesystem",
@@ -320,7 +349,7 @@ For either Claude Desktop or Cursor with Bunx:
       "args": [
           "@modelcontextprotocol/server-filesystem",
         "--full-access",                // For full read/write access
-        "/Users/username/Desktop",
+        "$HOME/Desktop",
         "/path/to/other/allowed/dir"
       ]
     }
@@ -335,7 +364,7 @@ You can configure the server with various permission combinations:
 ```json
 "args": [
   "/path/to/mcp-filesystem/dist/index.js",
-  "~/path/to/allowed/directory",
+  "$HOME/path/to/allowed/directory",
   "--readonly"                         // Read-only mode
 ]
 ```
@@ -343,7 +372,7 @@ You can configure the server with various permission combinations:
 ```json
 "args": [
   "/path/to/mcp-filesystem/dist/index.js",
-  "~/path/to/allowed/directory",
+  "$HOME/path/to/allowed/directory",
   "--full-access",                    // Full read/write access
   "--no-follow-symlinks"              // Don't follow symlinks
 ]
@@ -352,7 +381,7 @@ You can configure the server with various permission combinations:
 ```json
 "args": [
   "/path/to/mcp-filesystem/dist/index.js",
-  "~/path/to/allowed/directory",
+  "$HOME/path/to/allowed/directory",
   "--allow-create",                   // Selective permissions
   "--allow-edit"                      // Only allow creation and editing
 ]
@@ -367,8 +396,8 @@ When specifying multiple directories, permission flags apply **globally** to all
 ```json
 "args": [
   "/path/to/mcp-filesystem/dist/index.js",
-  "~/first/directory",                // Both directories have the same
-  "~/second/directory",               // permission settings (read-only)
+  "$HOME/first/directory",                // Both directories have the same
+  "$HOME/second/directory",               // permission settings (read-only)
   "--readonly"
 ]
 ```
@@ -379,18 +408,18 @@ If you need different permission levels for different directories, create multip
 {
     "mcpServers": {
       "readonly-filesystem": {
-        "command": "bun",
+        "command": "node",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
-        "~/sensitive/directory",
+        "$HOME/sensitive/directory",
         "--readonly"
       ]
     },
       "writeable-filesystem": {
-        "command": "bun",
+        "command": "node",
       "args": [
         "/path/to/mcp-filesystem/dist/index.js",
-        "~/sandbox/directory",
+        "$HOME/sandbox/directory",
         "--full-access"
       ]
     }
