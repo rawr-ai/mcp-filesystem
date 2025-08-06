@@ -49,83 +49,48 @@ Development uses [Bun](https://bun.sh/) and the server can run directly from Typ
 
 ## Configuration options
 
-Paths may include environment variables like `$HOME`, `${CUSTOM}`, or `%USERPROFILE%` to reference user-specific locations. Choose one of the following ways to run the server:
+Paths may include environment variables like `$HOME`, `${CUSTOM}`, or `%USERPROFILE%`. Choose the modality that fits your setup:
 
-### Local (Node/Bun)
-If you have the repository cloned locally.
-
+### Local (Node or Bun)
+Use Node for built JavaScript or Bun to run TypeScript directly.
 ```json
-{
-  "command": "node",
-  "args": ["/path/to/mcp-filesystem/dist/index.js", "$HOME/allowed-directory"]
-}
+{ "command": "node", "args": ["/path/to/mcp-filesystem/dist/index.js", "$HOME/allowed-directory"] }
+```
+```json
+{ "command": "bun",  "args": ["/path/to/mcp-filesystem/index.ts", "$HOME/allowed-directory"] }
 ```
 
-Using Bun without a build step:
-
+### Git hosted
+Run straight from the public repo without cloning.
 ```json
-{
-  "command": "bun",
-  "args": ["/path/to/mcp-filesystem/index.ts", "$HOME/allowed-directory"]
-}
+{ "command": "bunx", "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"] }
 ```
-
-### Git hosted (bunx/npx)
-If you want to run directly from the public git repo without cloning. These commands execute the compiled `dist/index.js` from the repository.
-
 ```json
-{
-  "command": "bunx",
-  "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
-}
-```
-
-```json
-{
-  "command": "npx",
-  "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
-}
+{ "command": "npx",  "args": ["github:rawr-ai/mcp-filesystem", "$HOME/allowed-directory"] }
 ```
 
 ### NPM package (coming soon)
-If you prefer using an npm package once published.
-
+Planned publication to `rawr-ai/mcp-filesystem`.
 ```json
-{
-  "command": "bunx",
-  "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
-}
+{ "command": "bunx", "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"] }
 ```
-
 ```json
-{
-  "command": "npx",
-  "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"]
-}
+{ "command": "npx",  "args": ["rawr-ai/mcp-filesystem", "$HOME/allowed-directory"] }
 ```
 
 ### Docker
-If you need an isolated container environment.
-
+Isolated container environment.
 ```json
-{
-  "command": "docker",
-  "args": ["run", "--rm", "-v", "$HOME/allowed-directory:/data", "mcp/filesystem", "/data"]
-}
+{ "command": "docker", "args": ["run", "--rm", "-v", "$HOME/allowed-directory:/data", "mcp/filesystem", "/data"] }
 ```
 
-### Glama.ai / others (coming soon)
-If you plan to use a hosted MCP server service.
-
+### Hosted service
+For managed MCP hosts like glama.ai.
 ```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "url": "https://glama.ai/rawr-ai/mcp-filesystem"
-    }
-  }
-}
+{ "mcpServers": { "filesystem": { "url": "https://glama.ai/rawr-ai/mcp-filesystem" } } }
 ```
+
+See the `examples/` directory for platform-specific configs (Cursor, Roo, etc.) and additional path variants.
 
 ## API
 
@@ -338,210 +303,10 @@ The server implements a comprehensive security model with granular permission co
 **Default Behavior**: If no permission flags are specified, the server runs in read-only mode. To enable any write operations, you must use either `--full-access` or specific `--allow-*` flags.
 
 ### Symlink Handling
-- By default, symlinks are followed (both link and target must be in allowed directories)
-- **--no-follow-symlinks**: Disable symlink following (operations act on the link itself)
+- By default, symlinks are followed when both the link and target are within allowed directories
+- **--no-follow-symlinks**: treat symlinks as regular files and refuse to traverse their targets, preventing escapes via linked paths
 
-## Usage with Claude Desktop and Cursor
-
-Add appropriate configuration to either `claude_desktop_config.json` (for Claude Desktop) or your local `.cursor/mcp.json` (for Cursor). Sample files are provided in the `examples` directory.
-
-### Cursor Configuration
-
-`examples/mcp_cursor_home.json`:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "node",
-      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "$HOME/allowed/path"]
-    }
-  }
-}
-```
-
-`examples/mcp_cursor_env.json`:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "node",
-      "args": ["dist/index.js", "--no-follow-symlinks", "--readonly", "${ALLOWED_PATH}"]
-    }
-  }
-}
-```
-
-### Roo Configuration
-
-`examples/mcp_roo_home.json`:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "node",
-      "args": ["dist/index.js", "$HOME/allowed/path"]
-    }
-  }
-}
-```
-
-`examples/mcp_roo_env.json`:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "node",
-      "args": ["dist/index.js", "${ALLOWED_PATH}"]
-    }
-  }
-}
-```
-
-### Docker Configuration
-
-**Mount a host directory** (`examples/mcp_docker_home.json` / `examples/mcp_docker_env.json`):
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "docker",
-      "args": ["run", "--rm", "-v", "$HOME/allowed:/data", "mcp/filesystem", "/data"]
-    }
-  }
-}
-```
-
-Replace `$HOME/allowed` with `${ALLOWED_PATH}` for an environment-variable path.
-
-**Use a path inside the container** (`examples/mcp_docker_container.json`):
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "docker",
-      "args": ["run", "--rm", "mcp/filesystem", "/data"]
-    }
-  }
-}
-```
-
-### Bunx Configuration
-
-For either Claude Desktop or Cursor with Bunx:
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "bunx",
-      "args": [
-        "@modelcontextprotocol/server-filesystem",
-        "--full-access",
-        "$HOME/Desktop",
-        "/path/to/other/allowed/dir"
-      ]
-    }
-  }
-}
-```
-
-### Permission Flag Examples
-
-You can configure the server with various permission combinations:
-
-```json
-"args": [
-  "/path/to/mcp-filesystem/dist/index.js",
-  "$HOME/path/to/allowed/directory",
-  "--readonly"                         // Read-only mode
-]
-```
-
-```json
-"args": [
-  "/path/to/mcp-filesystem/dist/index.js",
-  "$HOME/path/to/allowed/directory",
-  "--full-access",                    // Full read/write access
-  "--no-follow-symlinks"              // Don't follow symlinks
-]
-```
-
-```json
-"args": [
-  "/path/to/mcp-filesystem/dist/index.js",
-  "$HOME/path/to/allowed/directory",
-  "--allow-create",                   // Selective permissions
-  "--allow-edit"                      // Only allow creation and editing
-]
-```
-
-Note: `--readonly` takes precedence over all other permission flags, and `--full-access` enables all operations unless `--readonly` is specified.
-
-### Multiple Directories and Permissions
-
-When specifying multiple directories, permission flags apply **globally** to all directories:
-
-```json
-"args": [
-  "/path/to/mcp-filesystem/dist/index.js",
-  "$HOME/first/directory",                // Both directories have the same
-  "$HOME/second/directory",               // permission settings (read-only)
-  "--readonly"
-]
-```
-
-If you need different permission levels for different directories, create multiple server configurations:
-
-```json
-{
-    "mcpServers": {
-      "readonly-filesystem": {
-        "command": "node",
-      "args": [
-        "/path/to/mcp-filesystem/dist/index.js",
-        "$HOME/sensitive/directory",
-        "--readonly"
-      ]
-    },
-      "writeable-filesystem": {
-        "command": "node",
-      "args": [
-        "/path/to/mcp-filesystem/dist/index.js",
-        "$HOME/sandbox/directory",
-        "--full-access"
-      ]
-    }
-  }
-}
-```
-
-### Command Line Examples
-
-1. Read-only access:
-```bash
-bunx @modelcontextprotocol/server-filesystem --readonly /path/to/dir
-```
-
-2. Full access:
-```bash
-bunx @modelcontextprotocol/server-filesystem --full-access /path/to/dir
-```
-
-3. Specific permissions:
-```bash
-bunx @modelcontextprotocol/server-filesystem --allow-create --allow-edit /path/to/dir
-```
-
-4. No symlink following:
-```bash
-bunx @modelcontextprotocol/server-filesystem --full-access --no-follow-symlinks /path/to/dir
-```
+See `examples/mcp_permissions.json` for sample configurations using these flags.
 
 ## Build
 

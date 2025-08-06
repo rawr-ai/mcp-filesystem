@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "filesystem": {
-      "command": "node",
-      "args": ["dist/index.js", "--http", "--port", "8080", "$HOME/allowed/path"]
-    }
-  }
-}
