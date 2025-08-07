@@ -39,3 +39,29 @@ test('environment variables cannot bypass symlink restrictions', async () => {
     validatePath('$LINK_VAR/secret.txt', [allowed], new Map(), false)
   ).rejects.toThrow(/outside allowed directories/);
 });
+
+test('expands $CWD to process.cwd()', () => {
+  const cwd = process.cwd();
+  const result = expandHome('$CWD/subdir');
+  expect(result).toBe(path.join(cwd, 'subdir'));
+});
+
+test('expands $PWD when set, falls back to process.cwd() when not set', () => {
+  const originalPwd = process.env.PWD;
+  try {
+    process.env.PWD = '/tmp/pwd-test';
+    expect(expandHome('$PWD/file.txt')).toBe('/tmp/pwd-test/file.txt');
+  } finally {
+    // restore first
+    if (originalPwd === undefined) {
+      delete process.env.PWD;
+    } else {
+      process.env.PWD = originalPwd;
+    }
+  }
+
+  // Now unset and verify fallback
+  const current = process.cwd();
+  delete process.env.PWD;
+  expect(expandHome('$PWD/other')).toBe(path.join(current, 'other'));
+});

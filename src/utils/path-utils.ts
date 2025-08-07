@@ -11,7 +11,16 @@ export function normalizePath(p: string): string {
 export function expandHome(filepath: string): string {
   // Expand $VAR, ${VAR}, and %VAR% environment variables
   let expanded = filepath.replace(/\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))|%([A-Za-z_][A-Za-z0-9_]*)%/g, (match, braced, unixVar, winVar) => {
-    const envVar = braced || unixVar || winVar;
+    const envVar = (braced || unixVar || winVar) as string;
+
+    // Built-in fallbacks for common CWD variables
+    if (envVar === 'CWD') {
+      return process.cwd();
+    }
+    if (envVar === 'PWD') {
+      return process.env.PWD ?? process.cwd();
+    }
+
     const value = process.env[envVar];
     if (value === undefined) {
       throw new Error(`Environment variable ${envVar} is not defined`);
