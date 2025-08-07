@@ -1,0 +1,5 @@
+{
+  "secret": true,
+  "level": "deep",
+  "note": "This file is intentionally placed deep to test recursive listing and access."
+}
