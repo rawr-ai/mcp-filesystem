@@ -15,9 +15,15 @@
   ],
   "scripts": {
     "build": "bun run tsc && chmod +x dist/*.js",
-    "postinstall": "bun run build",
     "watch": "bun run tsc --watch",
-    "test": "bun test"
+    "test": "bun test",
+    "demo:node": "bun run demo:node:sse",
+    "demo:node:sse": "bun run build && (cd demo && node ../dist/index.js --cwd --http --port 8090)",
+    "demo:node:http": "bun run build && (cd demo && node ../dist/index.js --cwd --http --port 8090)",
+    "demo:bun": "bun run demo:bun:sse",
+    "demo:bun:sse": "cd demo && bun ../index.ts --cwd --http --port 8090",
+    "demo:bun:http": "cd demo && bun ../index.ts --cwd --http --port 8090",
+    "demo:docker": "./scripts/run-docker-demo.sh --cwd --http"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.12.1",

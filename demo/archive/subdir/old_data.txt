@@ -1,0 +1,8 @@
+This is an old archive file.
+
+* Path: archive/subdir/old_data.txt
+* Purpose: Test file for demonstrating the server's ability to list, move, or delete files in nested/archive directories.
+
+Contents:
+- Created for MCP Filesystem Server demo.
+- Safe to manipulate or remove for testing purposes.

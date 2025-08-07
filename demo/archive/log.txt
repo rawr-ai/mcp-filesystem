@@ -1,0 +1,5 @@
+This is a placeholder log file for the MCP Filesystem Server demo.
+
+You can use this file to test operations such as reading, listing, archiving, deleting, or modifying files in the `archive` directory.
+
+Log entries can be appended here during tests, or you may clear/overwrite the content while experimenting.

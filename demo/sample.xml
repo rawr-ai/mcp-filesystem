@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<library>
+    <name>MCP Filesystem Demo</name>
+    <description>
+        Example XML document to demonstrate conversion, structure parsing, and querying features of the MCP server.
+    </description>
+    <books>
+        <book id="1" genre="sci-fi">
+            <title>Hyperion</title>
+            <author>Dan Simmons</author>
+            <published>1989</published>
+            <checkedOut>false</checkedOut>
+        </book>
+        <book id="2" genre="fantasy">
+            <title>The Hobbit</title>
+            <author>J.R.R. Tolkien</author>
+            <published>1937</published>
+            <checkedOut>true</checkedOut>
+        </book>
+    </books>
+    <users>
+        <user>
+            <username>alice</username>
+            <permissions>read,write</permissions>
+        </user>
+        <user>
+            <username>bob</username>
+            <permissions>read</permissions>
+        </user>
+    </users>
+</library>

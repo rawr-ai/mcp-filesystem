@@ -1,6 +1,6 @@
 # Build output
 dist/
- 
+
 # Dependencies
 node_modules/
 node-compile-cache/
@@ -17,6 +17,8 @@ node-compile-cache/
 *.log
 *.tmp
 
-.vscode/
-
-node-compile-cache/
+# MCP client configs
+.cursor/
+!.cursor/rules/
+!.cursor/rules/**
+.roo/
