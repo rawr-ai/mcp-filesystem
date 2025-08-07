@@ -9,7 +9,7 @@ import {
   validatePath,
 } from "./src/utils/path-utils.js";
 import { toolSchemas } from "./src/schemas/index.js";
-import { toStandardSchema } from "./src/utils/typebox-standard.js";
+import { toZodParameters } from "./src/utils/typebox-zod.js";
 import {
   handleReadFile,
   handleReadMultipleFiles,
@@ -390,7 +390,7 @@ for (const tool of tools) {
   server.addTool({
     name: tool.name,
     description: tool.description,
-    parameters: schema ? toStandardSchema(schema) : undefined,
+    parameters: toZodParameters(schema as any) as any,
     execute: async (a) => execute(a) as any,
   });
 }
