@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "filesystem-readonly": {
+      "command": "node",
+      "args": ["dist/index.js", "$HOME/allowed/path", "--readonly"]
+    },
+    "filesystem-full": {
+      "command": "node",
+      "args": ["dist/index.js", "$HOME/allowed/path", "--full-access", "--no-follow-symlinks"]
+    },
+    "filesystem-selective": {
+      "command": "node",
+      "args": ["dist/index.js", "$HOME/allowed/path", "--allow-create", "--allow-edit"]
+    }
+  }
+}

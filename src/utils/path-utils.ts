@@ -1,6 +1,7 @@
 import path from 'path';
 import os from 'os';
 import fs from 'fs/promises';
+import type { ReadonlyDeep } from 'type-fest';
 
 // Normalize all paths consistently
 export function normalizePath(p: string): string {
@@ -8,22 +9,39 @@ export function normalizePath(p: string): string {
 }
 
 export function expandHome(filepath: string): string {
-  if (filepath.startsWith('~/') || filepath === '~') {
-    return path.join(os.homedir(), filepath.slice(1));
+  // Expand $VAR, ${VAR}, and %VAR% environment variables
+  let expanded = filepath.replace(/\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))|%([A-Za-z_][A-Za-z0-9_]*)%/g, (match, braced, unixVar, winVar) => {
+    const envVar = braced || unixVar || winVar;
+    const value = process.env[envVar];
+    if (value === undefined) {
+      throw new Error(`Environment variable ${envVar} is not defined`);
+    }
+    return value;
+  });
+
+  // Expand ~ to home directory
+  if (expanded.startsWith('~/') || expanded === '~') {
+    expanded = path.join(os.homedir(), expanded.slice(1));
   }
-  return filepath;
+
+  // Ensure no unresolved variables remain
+  if (/\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|%[A-Za-z_][A-Za-z0-9_]*%/.test(expanded)) {
+    throw new Error('Unresolved environment variables in path');
+  }
+
+  return expanded;
 }
-interface ValidatePathOptions {
+export type ValidatePathOptions = ReadonlyDeep<{
   checkParentExists?: boolean;
-}
+}>;
 
 
 export async function validatePath(
   requestedPath: string,
-  allowedDirectories: string[],
+  allowedDirectories: ReadonlyArray<string>,
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean,
-  options?: ValidatePathOptions // Add this
+  options?: ValidatePathOptions
 ): Promise<string> {
   // Default checkParentExists to true if not provided
   const checkParentExists = options?.checkParentExists ?? true;

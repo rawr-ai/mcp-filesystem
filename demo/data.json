@@ -1,0 +1,15 @@
+{
+  "message": "Hello, MCP Filesystem Server!",
+  "version": 1,
+  "features": [
+    "read",
+    "write",
+    "modify",
+    "search"
+  ],
+  "active": true,
+  "nested": {
+    "level": 1,
+    "description": "For testing JSON structure traversal"
+  }
+}

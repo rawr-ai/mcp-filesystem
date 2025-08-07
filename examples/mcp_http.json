@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "filesystem-home": {
+      "command": "node",
+      "args": ["dist/index.js", "--http", "--port", "8080", "$HOME/allowed/path"]
+    },
+    "filesystem-env": {
+      "command": "node",
+      "args": ["dist/index.js", "--http", "--port", "8080", "${ALLOWED_PATH}"]
+    }
+  }
+}

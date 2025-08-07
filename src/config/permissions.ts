@@ -1,3 +1,6 @@
+import path from 'path';
+import { expandHome, normalizePath } from '../utils/path-utils.js';
+
 export interface Permissions {
   create: boolean;
   edit: boolean;
@@ -56,6 +59,8 @@ export function parseCommandLineArgs(args: string[]): ServerConfig {
     readonlyFlag,
     noFollowSymlinks,
     permissions,
-    allowedDirectories: cleanArgs
+    allowedDirectories: cleanArgs.map(dir =>
+      normalizePath(path.resolve(expandHome(dir)))
+    )
   };
-} 
+}

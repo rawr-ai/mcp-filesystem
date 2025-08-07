@@ -1,0 +1,5 @@
+This is a basic text file for demo purposes.
+
+You can use this file to test read, write, modify, or delete operations within the MCP Filesystem Server.
+
+Feel free to append, overwrite, or search for text in this file!

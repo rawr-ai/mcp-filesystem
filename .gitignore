@@ -1,8 +1,9 @@
 # Build output
 dist/
- 
+
 # Dependencies
 node_modules/
+node-compile-cache/
 
 # Environment files
 .env
@@ -16,5 +17,8 @@ node_modules/
 *.log
 *.tmp
 
-.vscode/
-
+# MCP client configs
+.cursor/
+!.cursor/rules/
+!.cursor/rules/**
+.roo/

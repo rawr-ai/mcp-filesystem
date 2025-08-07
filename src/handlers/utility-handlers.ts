@@ -3,6 +3,7 @@ import path from 'path';
 import { XMLParser } from 'fast-xml-parser';
 import { Permissions } from '../config/permissions.js';
 import { validatePath } from '../utils/path-utils.js';
+import { parseArgs } from '../utils/schema-utils.js';
 import { searchFiles, findFilesByExtension, regexSearchContent } from '../utils/file-utils.js';
 import {
   GetPermissionsArgsSchema,
@@ -10,7 +11,13 @@ import {
   FindFilesByExtensionArgsSchema,
   XmlToJsonArgsSchema,
   XmlToJsonStringArgsSchema,
-  RegexSearchContentArgsSchema // Added import
+  RegexSearchContentArgsSchema, // Added import
+  type GetPermissionsArgs,
+  type SearchFilesArgs,
+  type FindFilesByExtensionArgs,
+  type XmlToJsonArgs,
+  type XmlToJsonStringArgs,
+  type RegexSearchContentArgs
 } from '../schemas/utility-operations.js';
 
 export function handleGetPermissions(
@@ -20,10 +27,7 @@ export function handleGetPermissions(
   noFollowSymlinks: boolean,
   allowedDirectories: string[]
 ) {
-  const parsed = GetPermissionsArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for get_permissions: ${parsed.error}`);
-  }
+  parseArgs(GetPermissionsArgsSchema, args, 'get_permissions');
 
   return {
     content: [{
@@ -52,13 +56,9 @@ export async function handleSearchFiles(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = SearchFilesArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for search_files: ${parsed.error}`);
-  }
-  const { path: startPath, pattern, excludePatterns, maxDepth, maxResults } = parsed.data;
+  const parsed = parseArgs(SearchFilesArgsSchema, args, 'search_files');
+  const { path: startPath, pattern, excludePatterns, maxDepth, maxResults } = parsed;
   const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  // TODO: Update searchFiles in file-utils.ts to accept and use maxDepth and maxResults
   const results = await searchFiles(validPath, pattern, excludePatterns, maxDepth, maxResults);
   return {
     content: [{ type: "text", text: results.length > 0 ? results.join("\n") : "No matches found" }],
@@ -71,13 +71,9 @@ export async function handleFindFilesByExtension(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = FindFilesByExtensionArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for find_files_by_extension: ${parsed.error}`);
-  }
-  const { path: startPath, extension, excludePatterns, maxDepth, maxResults } = parsed.data;
+  const parsed = parseArgs(FindFilesByExtensionArgsSchema, args, 'find_files_by_extension');
+  const { path: startPath, extension, excludePatterns, maxDepth, maxResults } = parsed;
   const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
-  // TODO: Update findFilesByExtension in file-utils.ts to accept and use maxDepth and maxResults
   const results = await findFilesByExtension(
     validPath,
     extension,
@@ -97,12 +93,9 @@ export async function handleXmlToJson(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = XmlToJsonArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_to_json: ${parsed.error}`);
-  }
-  
-  const { xmlPath, jsonPath, maxBytes, options } = parsed.data;
+  const parsed = parseArgs(XmlToJsonArgsSchema, args, 'xml_to_json');
+
+  const { xmlPath, jsonPath, maxBytes, options } = parsed;
   const validXmlPath = await validatePath(xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks); // Source must exist
 
   const validJsonPath = await validatePath(
@@ -182,12 +175,9 @@ export async function handleXmlToJsonString(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = XmlToJsonStringArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_to_json_string: ${parsed.error}`);
-  }
-  
-  const { xmlPath, maxBytes, options } = parsed.data;
+  const parsed = parseArgs(XmlToJsonStringArgsSchema, args, 'xml_to_json_string');
+
+  const { xmlPath, maxBytes, options } = parsed;
   const validXmlPath = await validatePath(xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks);
   
   try {
@@ -241,10 +231,7 @@ export async function handleRegexSearchContent(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ) {
-  const parsed = RegexSearchContentArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for regex_search_content: ${parsed.error}`);
-  }
+  const parsed = parseArgs(RegexSearchContentArgsSchema, args, 'regex_search_content');
   const {
     path: startPath,
     regex,
@@ -252,7 +239,7 @@ export async function handleRegexSearchContent(
     maxDepth,
     maxFileSize,
     maxResults
-  } = parsed.data;
+  } = parsed;
 
   const validPath = await validatePath(startPath, allowedDirectories, symlinksMap, noFollowSymlinks);
 

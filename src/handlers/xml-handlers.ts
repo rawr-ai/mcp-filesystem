@@ -1,10 +1,16 @@
 import { createReadStream } from 'fs';
 import fs from 'fs/promises';
 import { Transform } from 'stream';
-import { DOMParser } from 'xmldom';
 import * as xpath from 'xpath';
+// DOMParser is available globally in Bun
 import { validatePath } from '../utils/path-utils.js';
-import { XmlQueryArgsSchema, XmlStructureArgsSchema } from '../schemas/utility-operations.js';
+import { parseArgs } from '../utils/schema-utils.js';
+import {
+  XmlQueryArgsSchema,
+  XmlStructureArgsSchema,
+  type XmlQueryArgs,
+  type XmlStructureArgs
+} from '../schemas/utility-operations.js';
 
 // Define interfaces for type safety
 interface XmlNode {
@@ -16,6 +22,20 @@ interface XmlNode {
   nodeType?: number;
 }
 
+interface HierarchyNode {
+  name: string;
+  hasChildren?: boolean;
+  children?: HierarchyNode[];
+}
+
+interface XmlStructureInfo {
+  rootElement: string | undefined;
+  elements: Record<string, number>;
+  attributes?: Record<string, number>;
+  namespaces: Record<string, string>;
+  hierarchy?: HierarchyNode;
+}
+
 /**
  * Handler for executing XPath queries on XML files
  */
@@ -25,13 +45,10 @@ export async function handleXmlQuery(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlQueryArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_query: ${parsed.error}`);
-  }
+  const parsed = parseArgs(XmlQueryArgsSchema, args, 'xml_query');
 
   const validPath = await validatePath(
-    parsed.data.path,
+    parsed.path,
     allowedDirectories,
     symlinksMap,
     noFollowSymlinks
@@ -40,7 +57,7 @@ export async function handleXmlQuery(
   try {
     // Check file size before creating stream
     const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
     if (stats.size > effectiveMaxBytes) {
       throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
     }
@@ -67,9 +84,9 @@ export async function handleXmlQuery(
           try {
             const result = processXmlContent(
               xmlContent,
-              parsed.data.query,
-              parsed.data.structureOnly,
-              parsed.data.includeAttributes
+              parsed.query,
+              parsed.structureOnly,
+              parsed.includeAttributes
             );
             resolve(result);
           } catch (err) {
@@ -94,13 +111,10 @@ export async function handleXmlStructure(
   symlinksMap: Map<string, string>,
   noFollowSymlinks: boolean
 ): Promise<{ content: Array<{ type: string; text: string }> }> {
-  const parsed = XmlStructureArgsSchema.safeParse(args);
-  if (!parsed.success) {
-    throw new Error(`Invalid arguments for xml_structure: ${parsed.error}`);
-  }
+  const parsed = parseArgs(XmlStructureArgsSchema, args, 'xml_structure');
 
   const validPath = await validatePath(
-    parsed.data.path,
+    parsed.path,
     allowedDirectories,
     symlinksMap,
     noFollowSymlinks
@@ -109,7 +123,7 @@ export async function handleXmlStructure(
   try {
     // Check file size before creating stream
     const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.data.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
+    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
     if (stats.size > effectiveMaxBytes) {
       throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
     }
@@ -132,19 +146,13 @@ export async function handleXmlStructure(
       stream.pipe(transform)
         .on('finish', () => {
           try {
-            const parser = new DOMParser({
-              errorHandler: {
-                warning: () => {},
-                error: (msg: string) => console.error(`XML parsing error: ${msg}`),
-                fatalError: (msg: string) => { throw new Error(`Fatal XML parsing error: ${msg}`); }
-              }
-            });
+            const parser = new DOMParser();
             
             const doc = parser.parseFromString(xmlContent, 'text/xml');
             const structure = extractXmlStructure(
               doc,
-              parsed.data.maxDepth, // Use renamed maxDepth
-              parsed.data.includeAttributes
+              parsed.maxDepth,
+              parsed.includeAttributes
             );
 
             resolve({
@@ -175,13 +183,7 @@ function processXmlContent(
   structureOnly = false,
   includeAttributes = true
 ): { content: Array<{ type: string; text: string }> } {
-  const parser = new DOMParser({
-    errorHandler: {
-      warning: () => {},
-      error: (msg: string) => console.error(`XML parsing error: ${msg}`),
-      fatalError: (msg: string) => { throw new Error(`Fatal XML parsing error: ${msg}`); }
-    }
-  });
+  const parser = new DOMParser();
 
   const doc = parser.parseFromString(xmlContent, 'text/xml');
 
@@ -232,12 +234,12 @@ function processXmlContent(
 /**
  * Format a DOM node for output
  */
-function formatNode(node: any, includeAttributes = true): XmlNode {
+function formatNode(node: Node | string | number | boolean | null | undefined, includeAttributes = true): XmlNode {
   if (typeof node === 'string' || typeof node === 'number' || typeof node === 'boolean') {
     return { type: 'text', value: String(node) };
   }
 
-  if (!node || !node.nodeType) {
+  if (!node || typeof node !== 'object' || !('nodeType' in node)) {
     return { type: 'unknown', value: String(node) };
   }
 
@@ -251,16 +253,17 @@ function formatNode(node: any, includeAttributes = true): XmlNode {
 
   // Element node
   if (node.nodeType === 1) {
+    const element = node as Element;
     const result: XmlNode = {
       type: 'element',
-      name: node.nodeName,
-      value: node.textContent?.trim()
+      name: element.nodeName,
+      value: element.textContent?.trim()
     };
 
-    if (includeAttributes && node.attributes && node.attributes.length > 0) {
-      result.attributes = Array.from(node.attributes).map((attr: any) => ({
+    if (includeAttributes && element.attributes && element.attributes.length > 0) {
+      result.attributes = Array.from(element.attributes).map((attr) => ({
         name: attr.nodeName,
-        value: attr.nodeValue
+        value: attr.nodeValue ?? ''
       }));
     }
 
@@ -271,8 +274,8 @@ function formatNode(node: any, includeAttributes = true): XmlNode {
   if (node.nodeType === 2) {
     return {
       type: 'attribute',
-      name: node.nodeName,
-      value: node.nodeValue
+      name: (node as Attr).nodeName,
+      value: (node as Attr).nodeValue ?? ''
     };
   }
 
@@ -286,8 +289,8 @@ function formatNode(node: any, includeAttributes = true): XmlNode {
 /**
  * Extract structured information about XML document
  */
-function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = true) {
-  const structure: any = {
+function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = true): XmlStructureInfo {
+  const structure: XmlStructureInfo = {
     rootElement: doc.documentElement?.nodeName,
     elements: {},
     attributes: includeAttributes ? {} : undefined,
@@ -298,13 +301,14 @@ function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = tr
   const elementQuery = "//*";
   const elements = xpath.select(elementQuery, doc) as Node[];
 
-  elements.forEach((element: any) => {
-    const name = element.nodeName;
+  elements.forEach((element) => {
+    const el = element as Element;
+    const name = el.nodeName;
     structure.elements[name] = (structure.elements[name] || 0) + 1;
 
-    if (includeAttributes && element.attributes && element.attributes.length > 0) {
-      for (let i = 0; i < element.attributes.length; i++) {
-        const attr = element.attributes[i];
+    if (includeAttributes && el.attributes && el.attributes.length > 0) {
+      for (let i = 0; i < el.attributes.length; i++) {
+        const attr = el.attributes[i];
         const attrKey = `${name}@${attr.nodeName}`;
         if (structure.attributes) {
           structure.attributes[attrKey] = (structure.attributes[attrKey] || 0) + 1;
@@ -330,10 +334,11 @@ function extractNamespaces(doc: Document) {
 
   try {
     const nsNodes = xpath.select(nsQuery, doc) as Node[];
-    nsNodes.forEach((node: any) => {
-      if (node.namespaceURI) {
-        const prefix = node.prefix || '';
-        namespaces[prefix] = node.namespaceURI;
+    nsNodes.forEach((node) => {
+      const el = node as Element;
+      if (el.namespaceURI) {
+        const prefix = el.prefix || '';
+        namespaces[prefix] = el.namespaceURI;
       }
     });
   } catch (err) {
@@ -347,12 +352,12 @@ function extractNamespaces(doc: Document) {
 /**
  * Build element hierarchy up to maxDepth
  */
-function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): any {
+function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): HierarchyNode {
   if (currentDepth >= maxDepth) {
     return { name: element.nodeName, hasChildren: element.childNodes.length > 0 };
   }
 
-  const result: any = {
+  const result: HierarchyNode = {
     name: element.nodeName,
     children: []
   };
@@ -368,7 +373,7 @@ function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): any 
       // Only add unique child element types
       if (!processedChildren.has(child.nodeName)) {
         processedChildren.add(child.nodeName);
-        result.children.push(
+        result.children!.push(
           buildHierarchy(child, maxDepth, currentDepth + 1)
         );
       }
@@ -376,4 +381,4 @@ function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): any 
   }
 
   return result;
-} 
+}

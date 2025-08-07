@@ -14,34 +14,36 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && shx chmod +x dist/*.js",
-    "prepare": "npm run build",
-    "watch": "tsc --watch"
+    "build": "bun run tsc && chmod +x dist/*.js",
+    "watch": "bun run tsc --watch",
+    "test": "bun test",
+    "demo:node": "bun run demo:node:sse",
+    "demo:node:sse": "bun run build && (cd demo && node ../dist/index.js --cwd --http --port 8090)",
+    "demo:node:http": "bun run build && (cd demo && node ../dist/index.js --cwd --http --port 8090)",
+    "demo:bun": "bun run demo:bun:sse",
+    "demo:bun:sse": "cd demo && bun ../index.ts --cwd --http --port 8090",
+    "demo:bun:http": "cd demo && bun ../index.ts --cwd --http --port 8090",
+    "demo:docker": "./scripts/run-docker-demo.sh --cwd --http"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "0.5.0",
+    "@modelcontextprotocol/sdk": "1.12.1",
+    "@sinclair/typebox": "^0.34.33",
     "ajv": "^8.17.1",
-    "diff": "^5.1.0",
-    "fast-xml-parser": "^5.0.9",
-    "glob": "^10.3.10",
+    "diff": "^8.0.2",
+    "fast-xml-parser": "^5.2.5",
+    "fastmcp": "3.4.0",
     "jsonata": "^2.0.6",
     "jsonpath-plus": "^10.3.0",
-    "lodash": "^4.17.21",
-    "lodash-es": "^4.17.21",
     "minimatch": "^10.0.1",
-    "xmldom": "^0.6.0",
-    "xpath": "^0.0.34",
-    "zod": "^3.24.2",
-    "zod-to-json-schema": "^3.23.5"
+    "type-fest": "^4.41.0",
+    "xpath": "^0.0.34"
   },
   "devDependencies": {
-    "@types/diff": "^5.0.9",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/diff": "^8.0.0",
     "@types/jsonpath-plus": "^5.0.5",
-    "@types/lodash": "^4.17.16",
     "@types/minimatch": "^5.1.2",
-    "@types/node": "^22",
-    "@types/xmldom": "^0.1.34",
-    "shx": "^0.3.4",
-    "typescript": "^5.3.3"
+    "bun-types": "^1.2.15",
+    "typescript": "^5.8.3"
   }
 }

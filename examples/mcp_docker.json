@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "filesystem-home": {
+      "command": "docker",
+      "args": ["run", "--rm", "-v", "$HOME/allowed:/data", "mcp/filesystem", "/data"]
+    },
+    "filesystem-env": {
+      "command": "docker",
+      "args": ["run", "--rm", "-v", "${ALLOWED_PATH}:/data", "mcp/filesystem", "/data"]
+    },
+    "filesystem-container": {
+      "command": "docker",
+      "args": ["run", "--rm", "mcp/filesystem", "/data"]
+    }
+  }
+}

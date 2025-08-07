@@ -1,25 +1,31 @@
-FROM node:22.12-alpine AS builder
+FROM oven/bun
 
+# Set the application directory
 WORKDIR /app
 
-COPY src/filesystem /app
-COPY tsconfig.json /tsconfig.json
+# Copy application source code and configuration files
+# Using absolute paths for clarity and to avoid issues if WORKDIR changes.
+COPY src /app/src
+COPY index.ts /app/index.ts
+COPY package.json /app/package.json
+COPY bun.lock /app/bun.lock
+COPY tsconfig.json /app/tsconfig.json
 
-RUN --mount=type=cache,target=/root/.npm npm install
-
-RUN --mount=type=cache,target=/root/.npm-production npm ci --ignore-scripts --omit-dev
-
-
-FROM node:22-alpine AS release
-
-WORKDIR /app
-
-COPY --from=builder /app/dist /app/dist
-COPY --from=builder /app/package.json /app/package.json
-COPY --from=builder /app/package-lock.json /app/package-lock.json
-
+# Set environment to production
 ENV NODE_ENV=production
 
-RUN npm ci --ignore-scripts --omit-dev
+# Install production dependencies using the lockfile for reproducible builds.
+# The --production flag ensures devDependencies are not installed.
+RUN bun install --production --frozen-lockfile
 
-ENTRYPOINT ["node", "/app/dist/index.js"]
+# Define the entrypoint for the container.
+# This specifies the base command to run, which is the bun executable
+# followed by the path to our main script. Using an absolute path is crucial
+# because the container's working directory will be changed at runtime.
+ENTRYPOINT ["bun", "/app/index.ts"]
+
+# Define the default command arguments.
+# These will be appended to the ENTRYPOINT. The user can override these
+# arguments in the `docker run` command. Providing `--help` as the default
+# is a good practice, as it makes the container's usage self-documenting.
+CMD ["--help"]
