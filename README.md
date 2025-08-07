@@ -4,6 +4,10 @@ Bun-based server implementing Model Context Protocol (MCP) for filesystem operat
 
 Development uses [Bun](https://bun.sh/) and the server can run directly from TypeScript with `bun`, but most MCP clients execute Node-compatible JavaScript. Use `node dist/index.js` in configs unless you're intentionally running the TypeScript entry with Bun.
 
+<a href="https://glama.ai/mcp/servers/@rawr-ai/mcp-filesystem">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@rawr-ai/mcp-filesystem/badge" alt="Filesystem Server MCP server" />
+</a>
+
 ## Features
 
 - Granular permission controls (read-only, full access, or specific operation permissions)
