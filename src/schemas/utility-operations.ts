@@ -40,10 +40,14 @@ export type FindFilesByExtensionArgs = Static<typeof FindFilesByExtensionArgsSch
 export const XmlToJsonArgsSchema = Type.Object({
   xmlPath: Type.String({ description: 'Path to the XML file to convert' }),
   jsonPath: Type.String({ description: 'Path where the JSON should be saved' }),
-  maxBytes: Type.Integer({
+  maxBytes: Type.Optional(Type.Integer({
     minimum: 1,
-    description: 'Maximum bytes to read from the XML file. Must be a positive integer. Handler default: 10KB.'
-  }),
+    description: '[Deprecated semantics] Previously limited file bytes read; ignored for parsing; considered only as a response size cap where applicable.'
+  })),
+  maxResponseBytes: Type.Optional(Type.Integer({
+    minimum: 1,
+    description: 'Maximum size, in bytes, of the returned content. Parsing reads full file; response may be truncated to respect this limit.'
+  })),
   options: Type.Optional(
     Type.Object({
       ignoreAttributes: Type.Boolean({ default: false, description: 'Whether to ignore attributes in XML' }),
@@ -57,10 +61,14 @@ export type XmlToJsonArgs = Static<typeof XmlToJsonArgsSchema>;
 
 export const XmlToJsonStringArgsSchema = Type.Object({
   xmlPath: Type.String({ description: 'Path to the XML file to convert' }),
-  maxBytes: Type.Integer({
+  maxBytes: Type.Optional(Type.Integer({
     minimum: 1,
-    description: 'Maximum bytes to read from the XML file. Must be a positive integer. Handler default: 10KB.'
-  }),
+    description: '[Deprecated semantics] Previously limited file bytes read; now treated as a response size cap in bytes.'
+  })),
+  maxResponseBytes: Type.Optional(Type.Integer({
+    minimum: 1,
+    description: 'Maximum size, in bytes, of the returned JSON string. Parsing reads full file; response may be truncated to respect this limit.'
+  })),
   options: Type.Optional(
     Type.Object({
       ignoreAttributes: Type.Boolean({ default: false, description: 'Whether to ignore attributes in XML' }),
@@ -74,10 +82,14 @@ export const XmlQueryArgsSchema = Type.Object({
   path: Type.String({ description: 'Path to the XML file to query' }),
   query: Type.Optional(Type.String({ description: 'XPath query to execute against the XML file' })),
   structureOnly: Type.Optional(Type.Boolean({ default: false, description: 'If true, returns only tag names and structure instead of executing query' })),
-  maxBytes: Type.Integer({
+  maxBytes: Type.Optional(Type.Integer({
     minimum: 1,
-    description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'
-  }),
+    description: '[Deprecated semantics] Previously limited file bytes read; now treated as a response size cap in bytes.'
+  })),
+  maxResponseBytes: Type.Optional(Type.Integer({
+    minimum: 1,
+    description: 'Maximum size, in bytes, of the returned content. Parsing reads full file; response may be truncated to respect this limit.'
+  })),
   includeAttributes: Type.Optional(Type.Boolean({ default: true, description: 'Whether to include attribute information in the results' }))
 });
 export type XmlQueryArgs = Static<typeof XmlQueryArgsSchema>;
@@ -89,10 +101,14 @@ export const XmlStructureArgsSchema = Type.Object({
     description: 'How deep to analyze the hierarchy. Must be a positive integer. Handler default: 2.'
   }),
   includeAttributes: Type.Optional(Type.Boolean({ default: true, description: 'Whether to include attribute information' })),
-  maxBytes: Type.Integer({
+  maxBytes: Type.Optional(Type.Integer({
     minimum: 1,
-    description: 'Maximum bytes to read from the file. Must be a positive integer. Handler default: 10KB.'
-  })
+    description: '[Deprecated semantics] Previously limited file bytes read; now treated as a response size cap in bytes.'
+  })),
+  maxResponseBytes: Type.Optional(Type.Integer({
+    minimum: 1,
+    description: 'Maximum size, in bytes, of the returned content. Parsing reads full file; response may be truncated to respect this limit.'
+  }))
 });
 export type XmlStructureArgs = Static<typeof XmlStructureArgsSchema>;
 

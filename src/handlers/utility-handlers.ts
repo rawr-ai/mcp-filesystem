@@ -106,14 +106,7 @@ export async function handleXmlToJson(
     { checkParentExists: false } // Add option here for output JSON path
   );
   try {
-    // Check file size before reading
-    const stats = await fs.stat(validXmlPath);
-    const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
-    if (stats.size > effectiveMaxBytes) {
-      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
-    }
-    
-    // Read the XML file
+    // Read the XML file (no input size gating; limit only output)
     const xmlContent = await fs.readFile(validXmlPath, "utf-8");
     
     // Parse XML to JSON
@@ -129,9 +122,27 @@ export async function handleXmlToJson(
     // Format JSON if requested
     const format = options?.format ?? true;
     const indentSize = options?.indentSize ?? 2;
-    const jsonContent = format 
+    let jsonContent = format 
       ? JSON.stringify(jsonObj, null, indentSize) 
       : JSON.stringify(jsonObj);
+
+    // Enforce response-size cap for file write by truncating content if needed
+    const responseLimit = (parsed as any).maxResponseBytes ?? maxBytes;
+    if (typeof responseLimit === 'number' && responseLimit > 0) {
+      const size = Buffer.byteLength(jsonContent, 'utf8');
+      if (size > responseLimit) {
+        // Produce a summarized payload to fit limit
+        const summary = {
+          _meta: {
+            truncated: true,
+            originalSize: size,
+            note: `JSON too large to write fully; summarizing to fit ${responseLimit} bytes.`
+          },
+          sample: Array.isArray(jsonObj) ? jsonObj.slice(0, 3) : (typeof jsonObj === 'object' ? Object.fromEntries(Object.entries(jsonObj).slice(0, 50)) : jsonObj)
+        };
+        jsonContent = JSON.stringify(summary, null, indentSize);
+      }
+    }
     
     // Check if JSON file exists to determine if this is a create operation
     let fileExists = false;
@@ -181,14 +192,7 @@ export async function handleXmlToJsonString(
   const validXmlPath = await validatePath(xmlPath, allowedDirectories, symlinksMap, noFollowSymlinks);
   
   try {
-    // Check file size before reading
-    const stats = await fs.stat(validXmlPath);
-    const effectiveMaxBytes = maxBytes ?? (10 * 1024); // Default 10KB
-    if (stats.size > effectiveMaxBytes) {
-      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
-    }
-    
-    // Read the XML file
+    // Read the XML file (no input size gating; limit only output)
     const xmlContent = await fs.readFile(validXmlPath, "utf-8");
     
     // Parse XML to JSON
@@ -202,7 +206,24 @@ export async function handleXmlToJsonString(
     const jsonObj = parser.parse(xmlContent);
     
     // Return the JSON as a string
-    const jsonContent = JSON.stringify(jsonObj, null, 2);
+    let jsonContent = JSON.stringify(jsonObj, null, 2);
+
+    // Apply response-size cap
+    const responseLimit = (parsed as any).maxResponseBytes ?? maxBytes ?? 200 * 1024; // default 200KB
+    if (typeof responseLimit === 'number' && responseLimit > 0) {
+      const size = Buffer.byteLength(jsonContent, 'utf8');
+      if (size > responseLimit) {
+        const summary = {
+          _meta: {
+            truncated: true,
+            originalSize: size,
+            note: `JSON too large; summarizing to fit ${responseLimit} bytes.`
+          },
+          sample: Array.isArray(jsonObj) ? jsonObj.slice(0, 5) : (typeof jsonObj === 'object' ? Object.fromEntries(Object.entries(jsonObj).slice(0, 100)) : jsonObj)
+        };
+        jsonContent = JSON.stringify(summary, null, 2);
+      }
+    }
     
     return {
       content: [{ type: "text", text: jsonContent }],
