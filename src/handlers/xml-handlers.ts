@@ -1,8 +1,6 @@
-import { createReadStream } from 'fs';
 import fs from 'fs/promises';
-import { Transform } from 'stream';
 import * as xpath from 'xpath';
-// DOMParser is available globally in Bun
+import { DOMParser as XmldomDOMParser } from '@xmldom/xmldom';
 import { validatePath } from '../utils/path-utils.js';
 import { parseArgs } from '../utils/schema-utils.js';
 import {
@@ -55,47 +53,23 @@ export async function handleXmlQuery(
   );
 
   try {
-    // Check file size before creating stream
-    const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
-    if (stats.size > effectiveMaxBytes) {
-      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
+    const xmlContent = await fs.readFile(validPath, 'utf8');
+
+    try {
+      const responseLimit =
+        (parsed as any).maxResponseBytes ?? parsed.maxBytes ?? 200 * 1024; // 200KB default
+      const result = processXmlContent(
+        xmlContent,
+        parsed.query,
+        parsed.structureOnly,
+        parsed.includeAttributes,
+        responseLimit
+      );
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to process XML: ${errorMessage}`);
     }
-
-    // Create a streaming parser to handle large files up to maxBytes
-    const stream = createReadStream(validPath, {
-      encoding: 'utf8',
-      highWaterMark: 64 * 1024, // 64KB chunks
-      end: effectiveMaxBytes // Read up to the limit
-    });
-
-    return new Promise((resolve, reject) => {
-      let xmlContent = '';
-      
-      const transform = new Transform({
-        transform(chunk, encoding, callback) {
-          xmlContent += chunk;
-          callback();
-        }
-      });
-
-      stream.pipe(transform)
-        .on('finish', () => {
-          try {
-            const result = processXmlContent(
-              xmlContent,
-              parsed.query,
-              parsed.structureOnly,
-              parsed.includeAttributes
-            );
-            resolve(result);
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            reject(new Error(`Failed to process XML: ${errorMessage}`));
-          }
-        })
-        .on('error', reject);
-    });
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to query XML file: ${errorMessage}`);
@@ -121,53 +95,49 @@ export async function handleXmlStructure(
   );
 
   try {
-    // Check file size before creating stream
-    const stats = await fs.stat(validPath);
-    const effectiveMaxBytes = parsed.maxBytes ?? (10 * 1024); // Default 10KB (though schema makes it mandatory)
-    if (stats.size > effectiveMaxBytes) {
-      throw new Error(`File size (${stats.size} bytes) exceeds the maximum allowed size (${effectiveMaxBytes} bytes).`);
-    }
-    
-    let xmlContent = '';
-    const stream = createReadStream(validPath, {
-      encoding: 'utf8',
-      highWaterMark: 64 * 1024,
-      end: effectiveMaxBytes // Read up to the limit
-    });
+    const xmlContent = await fs.readFile(validPath, 'utf8');
 
-    return new Promise((resolve, reject) => {
-      const transform = new Transform({
-        transform(chunk, encoding, callback) {
-          xmlContent += chunk;
-          callback();
+    try {
+      const parser = new XmldomDOMParser();
+      const doc: any = parser.parseFromString(xmlContent, 'text/xml');
+      const structure = extractXmlStructure(
+        doc,
+        parsed.maxDepth,
+        parsed.includeAttributes
+      );
+
+      const responseLimit = (parsed as any).maxResponseBytes ?? parsed.maxBytes ?? 200 * 1024; // 200KB default
+      let json = JSON.stringify(structure, null, 2);
+
+      if (typeof responseLimit === 'number' && responseLimit > 0) {
+        const size = Buffer.byteLength(json, 'utf8');
+        if (size > responseLimit) {
+          // Fallback to a summarized structure to respect response limit
+          const summary = {
+            rootElement: structure.rootElement,
+            namespaces: structure.namespaces,
+            elementTypeCount: Object.keys(structure.elements).length,
+            attributeKeyCount: structure.attributes ? Object.keys(structure.attributes).length : 0,
+            hierarchy: structure.hierarchy ? { name: structure.hierarchy.name, hasChildren: structure.hierarchy.hasChildren, childrenCount: structure.hierarchy.children?.length ?? 0 } : undefined,
+            _meta: {
+              truncated: true,
+              note: `Full structure omitted to fit response limit of ${responseLimit} bytes`
+            }
+          };
+          json = JSON.stringify(summary, null, 2);
         }
-      });
+      }
 
-      stream.pipe(transform)
-        .on('finish', () => {
-          try {
-            const parser = new DOMParser();
-            
-            const doc = parser.parseFromString(xmlContent, 'text/xml');
-            const structure = extractXmlStructure(
-              doc,
-              parsed.maxDepth,
-              parsed.includeAttributes
-            );
-
-            resolve({
-              content: [{
-                type: "text",
-                text: JSON.stringify(structure, null, 2)
-              }]
-            });
-          } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : String(err);
-            reject(new Error(`Failed to extract XML structure: ${errorMessage}`));
-          }
-        })
-        .on('error', reject);
-    });
+      return {
+        content: [{
+          type: 'text',
+          text: json
+        }]
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed to extract XML structure: ${errorMessage}`);
+    }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to analyze XML structure: ${errorMessage}`);
@@ -181,17 +151,17 @@ function processXmlContent(
   xmlContent: string,
   query?: string,
   structureOnly = false,
-  includeAttributes = true
+  includeAttributes = true,
+  maxResponseBytes?: number
 ): { content: Array<{ type: string; text: string }> } {
-  const parser = new DOMParser();
-
-  const doc = parser.parseFromString(xmlContent, 'text/xml');
+  const parser = new XmldomDOMParser();
+  const doc: any = parser.parseFromString(xmlContent, 'text/xml');
 
   if (structureOnly) {
     // Extract only structure information
     const tags = new Set<string>();
     const structureQuery = "//*";
-    const nodes = xpath.select(structureQuery, doc);
+    const nodes = xpath.select(structureQuery, doc as any);
     
     if (!Array.isArray(nodes)) {
       throw new Error('Unexpected XPath result type');
@@ -203,28 +173,79 @@ function processXmlContent(
       }
     });
 
+    const base = {
+      tags: Array.from(tags),
+      count: nodes.length,
+      rootElement: doc.documentElement?.nodeName
+    };
+
+    let json = JSON.stringify(base, null, 2);
+    if (typeof maxResponseBytes === 'number' && maxResponseBytes > 0) {
+      if (Buffer.byteLength(json, 'utf8') > maxResponseBytes) {
+        // Trim tags list progressively until it fits
+        const all = base.tags;
+        let lo = 0;
+        let hi = all.length;
+        let best = 0;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          const candidate = { ...base, tags: all.slice(0, mid) };
+          const s = JSON.stringify(candidate, null, 2);
+          if (Buffer.byteLength(s, 'utf8') <= maxResponseBytes) {
+            best = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        const truncated = {
+          ...base,
+          tags: all.slice(0, best),
+          _meta: {
+            truncated: true,
+            omittedTagCount: all.length - best
+          }
+        } as const;
+        json = JSON.stringify(truncated, null, 2);
+      }
+    }
+
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({
-          tags: Array.from(tags),
-          count: nodes.length,
-          rootElement: doc.documentElement?.nodeName
-        }, null, 2)
-      }]
+      content: [{ type: 'text', text: json }]
     };
   } else if (query) {
     // Execute specific XPath query
-    const nodes = xpath.select(query, doc);
-    const results = Array.isArray(nodes)
-      ? nodes.map(node => formatNode(node, includeAttributes))
-      : [formatNode(nodes, includeAttributes)];
+    const nodes = xpath.select(query, doc as any);
+
+    const asArray: any[] = Array.isArray(nodes) ? nodes as any[] : [nodes as any];
+    const results: XmlNode[] = [];
+    let omittedCount = 0;
+    let currentJson = JSON.stringify(results, null, 2);
+    const limit = typeof maxResponseBytes === 'number' && maxResponseBytes > 0 ? maxResponseBytes : undefined;
+
+    for (let i = 0; i < asArray.length; i++) {
+      const formatted = formatNode(asArray[i] as any, includeAttributes);
+      const tentative = [...results, formatted];
+      const serialized = JSON.stringify(tentative, null, 2);
+      if (limit && Buffer.byteLength(serialized, 'utf8') > limit) {
+        omittedCount = asArray.length - i;
+        break;
+      }
+      results.push(formatted);
+      currentJson = serialized;
+    }
+
+    if (omittedCount > 0) {
+      const meta = { type: 'meta', value: `truncated: omitted ${omittedCount} result(s)` } as const;
+      const tentative = [...results, meta as any];
+      const serialized = JSON.stringify(tentative, null, 2);
+      if (!limit || Buffer.byteLength(serialized, 'utf8') <= limit) {
+        currentJson = serialized;
+      }
+    }
 
     return {
-      content: [{
-        type: "text",
-        text: JSON.stringify(results, null, 2)
-      }]
+      content: [{ type: 'text', text: currentJson }]
     };
   } else {
     throw new Error('Either structureOnly or query must be specified');
@@ -289,7 +310,7 @@ function formatNode(node: Node | string | number | boolean | null | undefined, i
 /**
  * Extract structured information about XML document
  */
-function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = true): XmlStructureInfo {
+function extractXmlStructure(doc: any, maxDepth = 2, includeAttributes = true): XmlStructureInfo {
   const structure: XmlStructureInfo = {
     rootElement: doc.documentElement?.nodeName,
     elements: {},
@@ -299,10 +320,10 @@ function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = tr
 
   // Get all element names and counts
   const elementQuery = "//*";
-  const elements = xpath.select(elementQuery, doc) as Node[];
+  const elements = xpath.select(elementQuery, doc) as any[];
 
   elements.forEach((element) => {
-    const el = element as Element;
+    const el = element as any;
     const name = el.nodeName;
     structure.elements[name] = (structure.elements[name] || 0) + 1;
 
@@ -328,14 +349,14 @@ function extractXmlStructure(doc: Document, maxDepth = 2, includeAttributes = tr
 /**
  * Extract namespaces used in the document
  */
-function extractNamespaces(doc: Document) {
+function extractNamespaces(doc: any) {
   const namespaces: Record<string, string> = {};
   const nsQuery = "//*[namespace-uri()]";
 
   try {
-    const nsNodes = xpath.select(nsQuery, doc) as Node[];
+    const nsNodes = xpath.select(nsQuery, doc) as any[];
     nsNodes.forEach((node) => {
-      const el = node as Element;
+      const el = node as any;
       if (el.namespaceURI) {
         const prefix = el.prefix || '';
         namespaces[prefix] = el.namespaceURI;
@@ -352,7 +373,7 @@ function extractNamespaces(doc: Document) {
 /**
  * Build element hierarchy up to maxDepth
  */
-function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): HierarchyNode {
+function buildHierarchy(element: any, maxDepth: number, currentDepth = 0): HierarchyNode {
   if (currentDepth >= maxDepth) {
     return { name: element.nodeName, hasChildren: element.childNodes.length > 0 };
   }
@@ -363,13 +384,13 @@ function buildHierarchy(element: Node, maxDepth: number, currentDepth = 0): Hier
   };
 
   // Only process element nodes (type 1)
-  const childElements = Array.from(element.childNodes)
-    .filter(node => node.nodeType === 1);
+  const childElements = Array.from(element.childNodes as any[])
+    .filter((node: any) => node && node.nodeType === 1) as any[];
 
   if (childElements.length > 0) {
     const processedChildren = new Set<string>();
 
-    childElements.forEach(child => {
+    childElements.forEach((child: any) => {
       // Only add unique child element types
       if (!processedChildren.has(child.nodeName)) {
         processedChildren.add(child.nodeName);
