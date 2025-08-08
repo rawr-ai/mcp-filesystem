@@ -107,13 +107,17 @@ See the `examples/` directory for platform-specific configs (Cursor, Roo, etc.) 
 All tool argument schemas are defined with [TypeBox](https://github.com/sinclairzx81/typebox) and registered via the `toolSchemas` map in `src/schemas`. This ensures every tool shares a consistent schema that handlers can reference.
 
 - **read_file**
-  - Read complete contents of a file
-  - Input: `path` (string)
-  - Reads complete file contents with UTF-8 encoding
+  - Read contents of a file (response-capped)
+  - Inputs:
+    - `path` (string)
+    - `maxBytes` (number): Maximum bytes to return
+  - Returns at most `maxBytes` bytes to protect downstream consumers
 
 - **read_multiple_files**
   - Read multiple files simultaneously
-  - Input: `paths` (string[])
+  - Inputs:
+    - `paths` (string[])
+    - `maxBytesPerFile` (number): Maximum bytes to return per file
   - Failed reads won't stop the entire operation
 
 - **create_file**
@@ -147,6 +151,7 @@ All tool argument schemas are defined with [TypeBox](https://github.com/sinclair
       - `oldText` (string): Text to search for (exact match)
       - `newText` (string): Text to replace with
     - `dryRun` (boolean): Preview changes without applying (default: false)
+    - `maxBytes` (number): Maximum bytes to read before editing
   - Returns detailed diff for dry runs, otherwise applies changes
   - Requires `edit` permission
   - Best Practice: Always use dryRun first to preview changes
@@ -239,7 +244,8 @@ All tool argument schemas are defined with [TypeBox](https://github.com/sinclair
   - Inputs:
     - `xmlPath` (string): Source XML file
     - `jsonPath` (string): Destination JSON file
-    - `options` (object): Optional settings
+    - `maxResponseBytes` (number, optional): Maximum size of written JSON; large outputs are summarized
+    - `options` (object, optional):
       - `ignoreAttributes` (boolean): Skip XML attributes (default: false)
       - `preserveOrder` (boolean): Maintain property order (default: true)
       - `format` (boolean): Pretty print JSON (default: true)
@@ -251,11 +257,12 @@ All tool argument schemas are defined with [TypeBox](https://github.com/sinclair
   - Convert XML file to JSON string
   - Inputs:
     - `xmlPath` (string): Source XML file
-    - `options` (object): Optional settings
+    - `maxResponseBytes` (number, optional): Maximum size of returned JSON string; large outputs are summarized
+    - `options` (object, optional):
       - `ignoreAttributes` (boolean): Skip XML attributes (default: false)
       - `preserveOrder` (boolean): Maintain property order (default: true)
   - Requires `read` permission for XML file
-  - Returns JSON string representation
+  - Returns JSON string representation (response-capped)
 
 - **xml_query**
   - Query XML file using XPath expressions
@@ -263,24 +270,36 @@ All tool argument schemas are defined with [TypeBox](https://github.com/sinclair
     - `path` (string): Path to the XML file
     - `query` (string, optional): XPath query to execute
     - `structureOnly` (boolean, optional): Return only tag structure
-    - `maxBytes` (number, optional): Maximum bytes to read (default: 1MB)
     - `includeAttributes` (boolean, optional): Include attribute info (default: true)
+    - `maxResponseBytes` (number, optional): Maximum size of returned JSON; defaults to 200KB
+      - Legacy `maxBytes` is still accepted and treated as response cap
   - XPath examples:
     - Get all elements: `//tagname`
     - Get elements with specific attribute: `//tagname[@attr="value"]`
     - Get text content: `//tagname/text()`
-  - Memory efficient for large XML files
-  - Returns JSON representation of query results or structure
+  - Parses full file; response is truncated to fit limits as needed
 
 - **xml_structure**
-  - Analyze XML structure without reading entire file
+  - Analyze XML structure
   - Inputs:
     - `path` (string): Path to the XML file
-    - `depth` (number, optional): How deep to analyze (default: 2)
-    - `includeAttributes` (boolean, optional): Include attribute analysis
-    - `maxBytes` (number, optional): Maximum bytes to read (default: 1MB)
-  - Returns statistical information about elements, attributes, and structure
-  - Useful for understanding large XML files before detailed analysis
+    - `maxDepth` (number, optional): How deep to analyze (default: 2)
+    - `includeAttributes` (boolean, optional): Include attribute analysis (default: true)
+    - `maxResponseBytes` (number, optional): Maximum size of returned JSON; defaults to 200KB
+      - Legacy `maxBytes` is still accepted and treated as response cap
+  - Returns statistical information about elements, attributes, namespaces, and hierarchy
+  - Parses full file; returns a summarized structure if response exceeds limit
+
+- **regex_search_content**
+  - Search file contents with a regular expression
+  - Inputs:
+    - `path` (string): Root directory to search
+    - `regex` (string): Regular expression pattern
+    - `filePattern` (string, optional): Glob to limit files (default: `*`)
+    - `maxDepth` (number, optional): Directory depth (default: 2)
+    - `maxFileSize` (number, optional): Maximum file size in bytes (default: 10MB)
+    - `maxResults` (number, optional): Maximum number of files with matches (default: 50)
+  - Returns a human-readable summary of files and matching lines
 
 ### Argument Validation
 
